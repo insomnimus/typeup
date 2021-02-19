@@ -1,0 +1,85 @@
+=# typeup test-drive
+
+# formatting
+
+==bold== and //italic//, the easy-to-type way, and
+*bold* and _italic_, the nice-to-read way. All of these
+line breaks
+are ignored and this is
+one paragraph
+
+| A quote - it's just words!
+
+## media
+
+media are customizable. 'image' and 'video' are built-in. they must appear on their own line
+
+image[A fire]https://web.site/img.jpg
+shortcut for the above: ![xyz]xyz
+video[]http://web.site/vid.mp4
+
+# lists
+
+[
+lists are easy to type, no line prefixes needed
+one item goes on each line. Bold/italic etc. are processed
+To add sub-lists, just nest lists
+this is an ordered list:
+{
+eat
+sleep
+repeat
+}
+]
+
+# h1
+## h2
+### h3
+#### h4
+##### h5
+###### h6
+
+# thematic breaks
+
+theme 1
+---
+theme 2
+
+# code
+
+''code'' is cool. You can also use markdown-style '`', which is more code-friendly and shorter but a bit harder to type.
+
+'''
+plain multiline code snippets also work
+'''
+
+```
+3 backticks do the same thing
+```
+
+## tables
+
+tables are of the form `#<delimiter>{}`. Delimiters can be multi-character.
+
+The first row becomes the table header. Each item is trimmed of its whitespace
+
+#,{
+name, statically typed, GC, compiled
+Go, yes, yes, yes
+Zig, yes, no, yes
+Python, no, yes, no
+}
+
+## custom blocks
+
+custom blocks are of the form `function:{input}`
+
+Different translators will have different built-in functions. To run shell commands, prefix the function with `!`. Some translators have a secure mode that forbids these.
+
+## metadata
+
+you can specify metadata in a ''@{}'' block, as key-value pairs of strings. These can be used by static site generators, Wikis and other programs
+
+They need to be of the form `key = value`. Whitespace is trimmed
+
+Additionaly, the shortcut ''=#'' exists which creates a `h1` element with its argument ==and== sets the ''title'' attribute to the content
