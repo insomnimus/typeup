@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strings"
+	"typeup/ast"
 	"unicode"
 )
 
@@ -178,4 +179,118 @@ func (p *Parser) setPos(pos int) {
 	p.pos = pos
 	p.readpos = pos + 1
 	p.ch = p.doc[pos]
+}
+
+func (p *Parser) lineLastChar() rune {
+	char := p.ch
+	lastChar := p.ch
+	for i := p.pos; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if char == '\n' {
+			return lastChar
+		}
+		if !unicode.IsSpace(char) {
+			lastChar = char
+		}
+	}
+	return lastChar
+}
+
+func hasAnchor(s []rune, start int) (*ast.Anchor, int) {
+	if s[start] != '[' {
+		return nil, -1
+	}
+	var (
+		buff strings.Builder
+		ch   rune
+		pos  = start
+	)
+	for i := start; i < len(s); i++ {
+		if i+1 == len(s) {
+			return nil, -1
+		}
+		ch = s[i]
+		if ch == ']' {
+			pos = i + 1
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	if unicode.IsSpace(s[pos]) {
+		return nil, -1
+	}
+	text := strings.TrimSpace(buff.String())
+	buff.Reset()
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if unicode.IsSpace(ch) {
+			pos = i
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	href := buff.String()
+	if href == "" {
+		return nil, -1
+	}
+	if text == "" {
+		text = href
+	}
+	return &ast.Anchor{Text: processText(text), URL: href}, pos
+}
+
+func hasItalic(s []rune, start int) (*ast.Text, int) {
+	if s[start] != '*' {
+		return nil, -1
+	}
+	var (
+		pos  = start
+		ch   = s[pos]
+		buff strings.Builder
+	)
+	for i := start; i < len(s); i++ {
+		ch = s[i]
+		if ch == '*' {
+			pos = i
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		return nil, -1
+	}
+	if item, xpos := hasBold([]rune(text), 0); xpos != -1 {
+		item.Style = ast.BoldAndItalic
+		return item, pos
+	}
+	return &ast.Text{Style: ast.Italic, Text: text}, pos
+}
+
+func hasBold(s []rune, start int) (*ast.Text, int) {
+	if s[start] != '_' {
+		return nil, -1
+	}
+	var (
+		pos  = start
+		ch   = s[pos]
+		buff strings.Builder
+	)
+	for i := start; i < len(s); i++ {
+		ch = s[i]
+		if ch == '_' {
+			pos = i
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		return nil, -1
+	}
+	if item, xpos := hasItalic([]rune(text), 0); xpos != -1 {
+		item.Style = ast.BoldAndItalic
+		return item, pos
+	}
+	return &ast.Text{Style: ast.Bold, Text: text}, pos
 }

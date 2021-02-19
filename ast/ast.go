@@ -23,10 +23,10 @@ type Node interface {
 
 type TextNode interface {
 	textHTML() string
+	listHTML() string
 }
 
 type ListItem interface {
-	TextNode
 	listHTML() string
 }
 
@@ -64,6 +64,23 @@ func (t *TextBlock) HTML() string {
 	return out.String()
 }
 
+func (tb *TextBlock) textHTML() string {
+	var out strings.Builder
+	for _, t := range tb.Items {
+		out.WriteString(t.textHTML())
+		out.WriteRune('\n')
+	}
+	return out.String()
+}
+
+func (tb *TextBlock) listHTML() string {
+	var out strings.Builder
+	for _, t := range tb.Items {
+		fmt.Fprintf(&out, "%s ", t.listHTML())
+	}
+	return out.String()
+}
+
 type Heading struct {
 	Title TextNode
 	Level int
@@ -81,7 +98,7 @@ func (ol *OrderedList) HTML() string {
 	var out strings.Builder
 	out.WriteString("<ol>\n")
 	for _, x := range ol.Items {
-		fmt.Fprintf(&out, "<li> %s </li>\n", x.textHTML())
+		fmt.Fprintf(&out, "<li> %s </li>\n", x.listHTML())
 	}
 	out.WriteString("</ol>")
 	return out.String()

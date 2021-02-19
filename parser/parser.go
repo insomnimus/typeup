@@ -102,16 +102,16 @@ func (p *Parser) headingAhead() (*ast.Heading, bool) {
 			break
 		}
 		if char == '\n' {
-			p.warnat(i, "heading possibly missing title")
+			p.warnAt(i, "heading possibly missing title")
 			return nil, false
 		}
 		level++
 	}
 	if idx >= len(p.doc) {
-		p.warnat(idx, "line doesn2t make sense")
+		p.warnAt(idx, "line doesn2t make sense")
 		return nil, false
 	} else if p.doc[idx] == '\n' {
-		p.warnat(idx, "heading possibly missing title")
+		p.warnAt(idx, "heading possibly missing title")
 		return nil, false
 	}
 	if level > 6 {
@@ -124,11 +124,11 @@ func (p *Parser) headingAhead() (*ast.Heading, bool) {
 			p.setPos(i)
 			break
 		}
-		buff.writeRune(char)
+		buff.WriteRune(char)
 	}
 	return &ast.Heading{
 		Level: level,
-		Text:  processText(buff.String()),
+		Title: processText(buff.String()),
 	}, true
 }
 
@@ -141,7 +141,6 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 		return nil, false
 	}
 	var delim string
-	lBraceN := 0
 	var char rune
 	pos := p.readpos
 	for i := p.readpos; i < len(p.doc); i++ {
@@ -201,7 +200,7 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 			lines = append(lines, buff.String())
 			buff.Reset()
 		}
-		if p.ch == '}' && p.onlyCharInLine(p.ch) {
+		if p.ch == '}' && p.lineOnlyCharIs(p.ch) {
 			// table done, break out
 			p.read()
 			break
@@ -210,6 +209,10 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 	}
 	if len(lines) == 0 {
 		p.warnAt(p.pos, "table with no elements ignored")
+		p.setPos(backupPos)
+		return nil, false
+	} else if len(lines) == 0 {
+		p.warnAt(p.pos, "table missing cells")
 		p.setPos(backupPos)
 		return nil, false
 	}
@@ -345,7 +348,8 @@ LOOP:
 	}, true
 }
 
-func processText(s string) ast.TextNode {
+func processText(source string) ast.TextNode {
+	s := []rune(source)
 	var (
 		buff  strings.Builder
 		ch    rune
@@ -415,4 +419,26 @@ LOOP:
 	return &ast.TextBlock{
 		Items: items,
 	}
+}
+
+func parseTable(lines []string, delim string) *ast.Table {
+	headers := strings.Split(lines[0], delim)
+	var rows [][]string
+	for _, row := range lines[1:] {
+		rows = append(rows,
+			strings.Split(row, delim))
+	}
+	var table ast.Table
+	for _, x := range headers {
+		table.Headers = append(table.Headers,
+			processText(x))
+	}
+	for _, row := range rows {
+		var cells []ast.TextNode
+		for _, x := range row {
+			cells = append(cells, processText(x))
+		}
+		table.Rows = append(table.Rows, cells)
+	}
+	return &table
 }
