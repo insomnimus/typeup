@@ -1,63 +1,72 @@
 package parser
 
+import (
+	"strings"
+	"typeup/ast"
+	"unicode"
+)
+
 type Parser struct {
-	doc []rune
-	ch, peek rune
-	pos, readpos int
+	doc              []rune
+	ch               rune
+	pos, readpos     int
 	errors, warnings []string
 }
 
-func New(s string) *Parser{
-	p:= &Parser{doc: []rune(s)}
+func New(s string) *Parser {
+	p := &Parser{doc: []rune(s)}
 	p.read()
 	return p
 }
 
-func(p *Parser) readCode(delim rune) ast.Node{
-	var buff strings.Builder
-	for i:=0; i<3; i++{
-		if p.ch != delim{
-			return &ast.Error{}
-		}
-		p.read()
+func (p *Parser) codeAhead(delim rune) (*ast.Code, bool) {
+	if p.ch != delim || p.peek() != p.ch || p.peekN(2) != p.ch {
+		return nil, false
 	}
-	LOOP:
-	for{
-		switch p.ch{
-			case delim:
-			if p.peek() == delim && p.peekN(2) == delim{
+	backupPos := p.pos
+	p.read()
+	p.read()
+	p.read()
+	var buff strings.Builder
+LOOP:
+	for {
+		switch p.ch {
+		case delim:
+			if p.peek() == delim && p.peekN(2) == delim {
+				p.read()
+				p.read()
+				p.read()
 				break LOOP
 			}
 			buff.WriteRune(p.ch)
-			case 0:
-			return newError("code block not terminated")
-			default:
+		case 0:
+			p.warnAt(p.pos, "possible code block not terminated")
+			p.setPos(backupPos)
+			return nil, false
+		default:
 			buff.WriteRune(p.ch)
 		}
 		p.read()
 	}
-	p.read()
-	p.read()
-	p.read()
 	return &ast.Code{
-		Text: buff.String()
-	}
+		Text: buff.String(),
+	}, true
 }
 
-func(p *Parser) linkAhead() (*ast.Anchor, bool){
+func (p *Parser) linkAhead() (*ast.Anchor, bool) {
 	if p.ch != '[' {
 		return nil, false
 	}
 	var text, href strings.Builder
 	var char rune
 	var idx int
-	for i:= p.readpos; i< len(p.doc); i++{
-		char= p.doc[i]
-		if char== '\n' {
+	for i := p.readpos; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if char == '\n' {
 			return nil, false
 		}
-		if char== ']' {
-			idx= i+1
+		if char == ']' {
+			idx = i + 1
 			break
 		}
 		text.WriteRune(char)
@@ -65,8 +74,8 @@ func(p *Parser) linkAhead() (*ast.Anchor, bool){
 	if unicode.IsSpace(p.doc[idx]) {
 		return nil, false
 	}
-	for i:= idx; i< len(p.doc); i++{
-		char= p.doc[i]
+	for i := idx; i < len(p.doc); i++ {
+		char = p.doc[i]
 		if unicode.IsSpace(char) {
 			p.setPos(i)
 			break
@@ -75,24 +84,24 @@ func(p *Parser) linkAhead() (*ast.Anchor, bool){
 	}
 	return &ast.Anchor{
 		Text: processText(text.String()),
-		URL: href.String(),
+		URL:  href.String(),
 	}, true
 }
 
-func(p *Parser) headingAhead() (*ast.Heading, bool) {
-	if p.ch!= '#' || !p.isStartOfLine() {
+func (p *Parser) headingAhead() (*ast.Heading, bool) {
+	if p.ch != '#' || !p.isStartOfLine() {
 		return nil, false
 	}
 	var char rune
 	var idx, level int
 	var buff strings.Builder
-	for i:= p.pos; i<len(p.doc); i++{
-		char= p.doc[i]
-		if unicode.IsSpace(char) && char!= '\n' {
-			idx= i+ 1 // set the cursor to the text
+	for i := p.pos; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if unicode.IsSpace(char) && char != '\n' {
+			idx = i + 1 // set the cursor to the text
 			break
 		}
-		if char== '\n' {
+		if char == '\n' {
 			p.warnat(i, "heading possibly missing title")
 			return nil, false
 		}
@@ -101,17 +110,17 @@ func(p *Parser) headingAhead() (*ast.Heading, bool) {
 	if idx >= len(p.doc) {
 		p.warnat(idx, "line doesn2t make sense")
 		return nil, false
-	}else if p.doc[idx] == '\n' {
+	} else if p.doc[idx] == '\n' {
 		p.warnat(idx, "heading possibly missing title")
 		return nil, false
 	}
-	if level> 6{
-		level= 6
+	if level > 6 {
+		level = 6
 		p.warnAt(idx, "too many '#' for a heading, maximum is 6")
 	}
-	for i:= idx; i<len(p.doc); i++{
-		char= p.doc[i]
-		if char== '\n' {
+	for i := idx; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if char == '\n' {
 			p.setPos(i)
 			break
 		}
@@ -119,12 +128,12 @@ func(p *Parser) headingAhead() (*ast.Heading, bool) {
 	}
 	return &ast.Heading{
 		Level: level,
-		Text: processText(buff.String()),
+		Text:  processText(buff.String()),
 	}, true
 }
 
-func(p *Parser) tableAhead() (*ast.Table, bool) {
-	backupPos:= p.pos // to revert back to in case of faulty typeup file
+func (p *Parser) tableAhead() (*ast.Table, bool) {
+	backupPos := p.pos // to revert back to in case of faulty typeup file
 	if p.ch != '#' || !p.isStartOfLine() {
 		return nil, false
 	}
@@ -132,20 +141,20 @@ func(p *Parser) tableAhead() (*ast.Table, bool) {
 		return nil, false
 	}
 	var delim string
-	lBraceN:=0
+	lBraceN := 0
 	var char rune
-	pos:= p.readpos
-	for i:=p.readpos; i< len(p.doc); i++{
-		char= p.doc[i]
-		if char== '{' {
-			pos= i + 1
+	pos := p.readpos
+	for i := p.readpos; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if char == '{' {
+			pos = i + 1
 			break
 		}
-		if char == '#' || char== '}' {
+		if char == '#' || char == '}' {
 			p.warnAt(i, "%c is not allowed as a table delimiter", char)
 			return nil, false
 		}
-		if char== '\n' {
+		if char == '\n' {
 			// todo: make sure it never comes to this block, it shouldn't
 			return nil, false
 		}
@@ -156,11 +165,11 @@ func(p *Parser) tableAhead() (*ast.Table, bool) {
 		p.warnAt(pos, "unexpected EoF in possible table declaration")
 		return nil, false
 	}
-	for i:= pos; i< len(p.doc); i++{
-		char= p.doc[i]
-		if char== '\n' {
+	for i := pos; i < len(p.doc); i++ {
+		char = p.doc[i]
+		if char == '\n' {
 			// it's good, jump over to the next line
-			pos= i + 1
+			pos = i + 1
 			break
 		}
 		if !unicode.IsSpace(char) {
@@ -172,9 +181,9 @@ func(p *Parser) tableAhead() (*ast.Table, bool) {
 		p.warnAt(pos, "unexpected EoF in possible table declaration")
 		return nil, false
 	}
-	delim= strings.TrimSpace(delim)
-	if delim == ""{
-		p.warnAt(pos - 1, "the table delimiter can't be empty")
+	delim = strings.TrimSpace(delim)
+	if delim == "" {
+		p.warnAt(pos-1, "the table delimiter can't be empty")
 		return nil, false
 	}
 	// prepare to read the table elements
@@ -182,24 +191,24 @@ func(p *Parser) tableAhead() (*ast.Table, bool) {
 	// read until we find the closing brace
 	var lines []string
 	var buff strings.Builder
-	for{
-		if p.ch== 0 {
+	for {
+		if p.ch == 0 {
 			p.warnAt(p.pos, "unexpected EoF in table")
 			p.setPos(backupPos)
 			return nil, false
 		}
-		if p.ch== '\n' {
-			lines= append(lines, buff.String())
+		if p.ch == '\n' {
+			lines = append(lines, buff.String())
 			buff.Reset()
 		}
-	if p.ch== '}' && p.onlyCharInLine(p.ch) {
-		// table done, break out
+		if p.ch == '}' && p.onlyCharInLine(p.ch) {
+			// table done, break out
+			p.read()
+			break
+		}
 		p.read()
-		break
 	}
-		p.read()
-	}
-	if len(lines) == 0{
+	if len(lines) == 0 {
 		p.warnAt(p.pos, "table with no elements ignored")
 		p.setPos(backupPos)
 		return nil, false
@@ -208,63 +217,61 @@ func(p *Parser) tableAhead() (*ast.Table, bool) {
 	return parseTable(lines, delim), true
 }
 
-func(p *Parser) ulAhead() (*ast.UnorderedList, bool) {
-	if p.ch!= '[' {
+func (p *Parser) ulAhead() (*ast.UnorderedList, bool) {
+	if p.ch != '[' {
 		return nil, false
 	}
 	if !p.lineOnlyCharIs('[') {
 		return nil, false
 	}
-	backupPos:= p.pos
+	backupPos := p.pos
 	// consume the line and get to the first element
-	for p.ch!= 0 && p.ch!= '\n' {
+	for p.ch != 0 && p.ch != '\n' {
 		p.read()
 	}
-	if p.ch== 0{
+	if p.ch == 0 {
 		p.warnAt(backupPos, "stray '['")
 		p.setPos(backupPos)
 		return nil, false
 	}
 	p.read()
-	var(
-	ln string
-	buff strings.Builder
-	items []ast.ListItem
+	var (
+		ln    string
+		buff  strings.Builder
+		items []ast.ListItem
 	)
-	LOOP:
-	for{
-		switch p.ch{
-			case '[':
-			if p.lineOnlyCharIs(p.ch) {
-				if item, ok:= p.ulAhead(); ok{
-					items= append(items, item)
-				}else{
-					buff.WriteRune(p.ch)
-				}
-				case '{':
-				if item, ok:= p.olAhead(); ok{
-					items= append(items, item)
-				}else{
-					buff.WriteRune(p.ch)
-				}
-				case ']':
-				if p.lineOnlyCharIs(p.ch) {
-					p.read()
-					break LOOP
-				}
+LOOP:
+	for {
+		switch p.ch {
+		case '[':
+			if item, ok := p.ulAhead(); ok {
+				items = append(items, item)
+			} else {
 				buff.WriteRune(p.ch)
-				case 0:
-				p.warnAt(p.pos, "possible list not terminated with ']'")
-				p.setPos(backupPos)
-				return nil, false
 			}
-			case '\n':
-			ln= buff.String()
+		case '{':
+			if item, ok := p.olAhead(); ok {
+				items = append(items, item)
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case ']':
+			if p.lineOnlyCharIs(p.ch) {
+				p.read()
+				break LOOP
+			}
+			buff.WriteRune(p.ch)
+		case 0:
+			p.warnAt(p.pos, "possible list not terminated with ']'")
+			p.setPos(backupPos)
+			return nil, false
+		case '\n':
+			ln = buff.String()
 			buff.Reset()
-			if !isEmpty(ln){
-				items= append(items, processText(ln))
+			if !isEmpty(ln) {
+				items = append(items, processText(ln))
 			}
-			default:
+		default:
 			buff.WriteRune(p.ch)
 		}
 		p.read()
@@ -274,63 +281,61 @@ func(p *Parser) ulAhead() (*ast.UnorderedList, bool) {
 	}, true
 }
 
-func(p *Parser) olAhead() (*ast.OrderedList, bool) {
-	if p.ch!= '{' {
+func (p *Parser) olAhead() (*ast.OrderedList, bool) {
+	if p.ch != '{' {
 		return nil, false
 	}
 	if !p.lineOnlyCharIs('{') {
 		return nil, false
 	}
-	backupPos:= p.pos
+	backupPos := p.pos
 	// consume the line and get to the first element
-	for p.ch!= 0 && p.ch!= '\n' {
+	for p.ch != 0 && p.ch != '\n' {
 		p.read()
 	}
-	if p.ch== 0{
+	if p.ch == 0 {
 		p.warnAt(backupPos, "stray '{'")
 		p.setPos(backupPos)
 		return nil, false
 	}
 	p.read()
-	var(
-	ln string
-	buff strings.Builder
-	items []ast.ListItem
+	var (
+		ln    string
+		buff  strings.Builder
+		items []ast.ListItem
 	)
-	LOOP:
-	for{
-		switch p.ch{
-			case '[':
-			if p.lineOnlyCharIs(p.ch) {
-				if item, ok:= p.ulAhead(); ok{
-					items= append(items, item)
-				}else{
-					buff.WriteRune(p.ch)
-				}
-				case '{':
-				if item, ok:= p.olAhead(); ok{
-					items= append(items, item)
-				}else{
-					buff.WriteRune(p.ch)
-				}
-				case '}':
-				if p.lineOnlyCharIs(p.ch) {
-					p.read()
-					break LOOP
-				}
+LOOP:
+	for {
+		switch p.ch {
+		case '[':
+			if item, ok := p.ulAhead(); ok {
+				items = append(items, item)
+			} else {
 				buff.WriteRune(p.ch)
-				case 0:
+			}
+		case '{':
+			if item, ok := p.olAhead(); ok {
+				items = append(items, item)
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case '}':
+			if p.lineOnlyCharIs(p.ch) {
+				p.read()
+				break LOOP
+			}
+			buff.WriteRune(p.ch)
+		case 0:
 			p.warnAt(p.pos, "possible list not terminated with '}'")
-				p.setPos(backupPos)
-				return nil, false
-			}
-			case '\n':
-			ln= buff.String()
+			p.setPos(backupPos)
+			return nil, false
+		case '\n':
+			ln = buff.String()
 			buff.Reset()
-			if !isEmpty(ln){
-				items= append(items, processText(ln))
+			if !isEmpty(ln) {
+				items = append(items, processText(ln))
 			}
-			default:
+		default:
 			buff.WriteRune(p.ch)
 		}
 		p.read()
@@ -340,3 +345,74 @@ func(p *Parser) olAhead() (*ast.OrderedList, bool) {
 	}, true
 }
 
+func processText(s string) ast.TextNode {
+	var (
+		buff  strings.Builder
+		ch    rune
+		items []ast.TextNode
+		text  string
+	)
+
+LOOP:
+	for i := 0; i < len(s); i++ {
+		ch = s[i]
+		switch ch {
+		case '[':
+			if anchor, pos := hasAnchor(s, i); pos > i {
+				text = buff.String()
+				if !isEmpty(text) {
+					items = append(items, &ast.Text{
+						Text: text,
+					})
+				}
+				buff.Reset()
+				items = append(items, anchor)
+				i = pos
+				continue LOOP
+			} else {
+				buff.WriteRune(ch)
+			}
+		case '*':
+			if item, pos := hasItalic(s, i); pos > i {
+				text = buff.String()
+				if !isEmpty(text) {
+					items = append(items, &ast.Text{
+						Text: text,
+					})
+				}
+				buff.Reset()
+				items = append(items, item)
+				i = pos
+				continue LOOP
+			} else {
+				buff.WriteRune(ch)
+			}
+		case '_':
+			if item, pos := hasBold(s, i); pos > i {
+				text = buff.String()
+				if !isEmpty(text) {
+					items = append(items, &ast.Text{
+						Text: text,
+					})
+				}
+				buff.Reset()
+				items = append(items, item)
+				i = pos
+				continue LOOP
+			} else {
+				buff.WriteRune(ch)
+			}
+		default:
+			buff.WriteRune(ch)
+		}
+	}
+	text = buff.String()
+	if !isEmpty(text) {
+		items = append(items, &ast.Text{
+			Text: text,
+		})
+	}
+	return &ast.TextBlock{
+		Items: items,
+	}
+}
