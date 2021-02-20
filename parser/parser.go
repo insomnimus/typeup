@@ -11,10 +11,14 @@ type Parser struct {
 	ch               rune
 	pos, readpos     int
 	errors, warnings []string
+	meta             map[string]string
 }
 
 func New(s string) *Parser {
-	p := &Parser{doc: []rune(s)}
+	p := &Parser{
+		doc:  []rune(s),
+		meta: make(map[string]string),
+	}
 	p.read()
 	return p
 }
@@ -442,3 +446,133 @@ func parseTable(lines []string, delim string) *ast.Table {
 	}
 	return &table
 }
+
+func (p *Parser) headingShortAhead() (*ast.Heading, bool) {
+	if p.ch != '=' || p.peek() != '#' {
+		return nil, false
+	}
+	// read past '#='
+	backupPos := p.pos
+	p.read()
+	p.read()
+	if !unicode.IsSpace(p.ch) {
+		p.warnAt(p.pos, "heading declaration possibly missing a space")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	p.read()
+	// read until end of line for the text
+	var buff strings.Builder
+LOOP:
+	for {
+		switch p.ch {
+		case '\n':
+			p.read()
+			break LOOP
+		case 0:
+			p.warnAt(p.pos, "unexpected EoF")
+			break LOOP
+		default:
+			buff.WriteRune(p.ch)
+		}
+		p.read()
+	}
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		p.warnAt(p.pos, "heading missing text")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	node := processText(text)
+	// TODO: implement this
+	// p.meta["title"]= node.BareText()
+	return &ast.Heading{
+		Level: 1,
+		Title: node,
+	}, true
+}
+
+func (p *Parser) readPlainText() *ast.TextBlock {
+	// NOTE: this func should eat any special character if it's the first iteration
+	// the reason being, this func should only be called as a fallback
+	var (
+		backupPos = p.pos
+		text      string
+		buff      strings.Builder
+		items     []ast.TextNode
+	)
+
+LOOP:
+	for {
+		switch p.ch {
+		case '[':
+			node, ok := p.linkAhead()
+			text = strings.TrimSpace(buff.String())
+			if text != "" {
+				items = append(items, processText(text))
+			}
+			buff.Reset()
+			if ok {
+				items = append(items, node)
+			} else if backupPos == p.pos {
+				buff.WriteRune(p.ch)
+			} else {
+				break LOOP
+			}
+		case '{', '#':
+			if p.pos == backupPos {
+				buff.WriteRune(p.ch)
+			} else if p.isStartOfLine() {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case '=':
+			if p.pos == backupPos {
+				buff.WriteRune(p.ch)
+			} else if p.isStartOfLine() && p.peek() == '#' {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case '|':
+			if p.isStartOfLine() && p.peek() != '\n' && unicode.IsSpace(p.peek()) {
+				text = strings.TrimSpace(buff.String())
+				buff.Reset()
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				p.read()
+				text = strings.TrimSpace(p.readLineRest())
+				if text != "" {
+					items = append(items, &ast.BlockQuote{
+						Text: processText(text),
+					})
+				}
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case 0:
+			text = strings.TrimSpace(buff.String())
+			if text != "" {
+				items = append(items, processText(text))
+			}
+			break LOOP
+		default:
+			buff.WriteRune(p.ch)
+		}
+		p.read()
+	}
+	return &ast.TextBlock{
+		Items: items,
+	}
+}
+

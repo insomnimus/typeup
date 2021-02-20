@@ -294,3 +294,12 @@ func hasBold(s []rune, start int) (*ast.Text, int) {
 	}
 	return &ast.Text{Style: ast.Bold, Text: text}, pos
 }
+
+func (p *Parser) readLineRest() string {
+	var buff strings.Builder
+	for p.ch != '\n' && p.ch != 0 {
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+	return buff.String()
+}

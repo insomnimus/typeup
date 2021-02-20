@@ -195,3 +195,20 @@ func (img *Image) HTML() string {
 	out.WriteRune('>')
 	return out.String()
 }
+
+type BlockQuote struct {
+	Text TextNode
+}
+
+func (bq *BlockQuote) HTML() string {
+	return fmt.Sprintf("<blockquote> %s </blockquote>",
+		bq.Text.textHTML())
+}
+
+func (bq *BlockQuote) textHTML() string {
+	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.Text.textHTML())
+}
+
+func (bq *BlockQuote) listHTML() string {
+	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.listHTML())
+}
