@@ -41,7 +41,7 @@ func (p *Parser) searchLineUntil(c rune) (string, int) {
 	for i := p.readpos; i < len(p.doc); i++ {
 		char = p.doc[i]
 		if char == '\n' {
-			return "", -1
+			break
 		}
 		if char == c {
 			end = i
@@ -341,6 +341,9 @@ func hasInlineCode(s []rune, start int) (*ast.Code, int) {
 
 func (p *Parser) isSpaceUntilLF() bool {
 	if p.readpos >= len(p.doc) {
+		return true
+	}
+	if p.peek() == '\n' || p.peek() == 0 {
 		return true
 	}
 	var ch rune

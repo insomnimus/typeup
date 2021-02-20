@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"regexp"
 	"strings"
 	"typeup/ast"
 	"unicode"
@@ -15,10 +14,8 @@ type Parser struct {
 	meta             map[string]string
 }
 
-var replacer = regexp.MustCompile(`[\r\n]+`)
-
 func New(s string) *Parser {
-	s = replacer.ReplaceAllString(s, "\n")
+	s = strings.Replace(s, "\r", "\n", -1)
 	p := &Parser{
 		doc:  []rune(s),
 		meta: make(map[string]string),
@@ -444,8 +441,8 @@ LOOP:
 			}
 		case '*':
 			if item, pos := hasItalic(s, i); pos > i {
-				text = buff.String()
-				if !isEmpty(text) {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
 					items = append(items, &ast.Text{
 						Text: text,
 					})
@@ -453,14 +450,14 @@ LOOP:
 				buff.Reset()
 				items = append(items, item)
 				i = pos
-				continue LOOP
+				continue LOOP // maybe remove
 			} else {
 				buff.WriteRune(ch)
 			}
 		case '_':
 			if item, pos := hasBold(s, i); pos > i {
-				text = buff.String()
-				if !isEmpty(text) {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
 					items = append(items, &ast.Text{
 						Text: text,
 					})
@@ -476,8 +473,8 @@ LOOP:
 			buff.WriteRune(ch)
 		}
 	}
-	text = buff.String()
-	if !isEmpty(text) {
+	text = strings.TrimSpace(buff.String())
+	if text != "" {
 		items = append(items, &ast.Text{
 			Text: text,
 		})
@@ -567,6 +564,42 @@ func (p *Parser) readPlainText() *ast.TextBlock {
 LOOP:
 	for {
 		switch p.ch {
+		case 'i':
+			if backupPos == p.pos {
+				buff.WriteRune(p.ch)
+			} else if p.aheadIs("image[") {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case '!':
+			if backupPos == p.pos {
+				buff.WriteRune(p.ch)
+			} else if p.peek() == '[' {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
+		case 'v':
+			if backupPos == p.pos {
+				buff.WriteRune(p.ch)
+			} else if p.aheadIs("video[") {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
 		case '-':
 			if backupPos == p.pos {
 				buff.WriteRune(p.ch)
@@ -660,12 +693,12 @@ func (p *Parser) themeBreakAhead() (*ast.ThemeBreak, bool) {
 	backupPos := p.pos
 	p.read()
 	p.read()
-	p.read()
 	if !p.isSpaceUntilLF() {
 		p.setPos(backupPos)
 		p.warnAt(p.pos, "theme break line can only contain '-'")
 		return nil, false
 	}
+	p.read()
 	return &ast.ThemeBreak{}, true
 }
 
@@ -682,7 +715,7 @@ func (p *Parser) imageAhead() (*ast.Image, bool) {
 		p.read()
 	}
 	alt, pos := p.searchLineUntil(']')
-	if p.pos <= pos {
+	if pos <= p.pos {
 		p.warnAt(p.pos, "image missing ']'")
 		p.setPos(backupPos)
 		return nil, false

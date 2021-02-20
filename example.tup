@@ -10,6 +10,10 @@ one paragraph
 
 | A quote - it's just words!
 
+# links
+
+this document lives [here]https://git.sr.ht/~skuzzymiglet/typeup/tree/master/item/example.tup
+
 ## media
 
 media are customizable. 'image' and 'video' are built-in. they must appear on their own line
