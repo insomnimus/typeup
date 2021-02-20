@@ -505,6 +505,18 @@ func (p *Parser) readPlainText() *ast.TextBlock {
 LOOP:
 	for {
 		switch p.ch {
+		case '-':
+			if backupPos == p.pos {
+				buff.WriteRune(p.ch)
+			} else if p.isStartOfLine() && p.peek() == '-' && p.peekN(2) == '-' {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
 		case '[':
 			node, ok := p.linkAhead()
 			text = strings.TrimSpace(buff.String())
@@ -576,3 +588,128 @@ LOOP:
 	}
 }
 
+func (p *Parser) themeBreakAhead() (*ast.ThemeBreak, bool) {
+	if !p.isStartOfLine() ||
+		p.ch != '-' ||
+		p.peek() != '-' ||
+		p.peekN(2) != '-' {
+		return nil, false
+	}
+	backupPos := p.pos
+	p.read()
+	p.read()
+	p.read()
+	if !p.isSpaceUntilLF() {
+		p.setPos(backupPos)
+		p.warnAt(p.pos, "theme break line can only contain '-'")
+		return nil, false
+	}
+	return &ast.ThemeBreak{}, true
+}
+
+func (p *Parser) imageAhead() (*ast.Image, bool) {
+	if !p.isStartOfLine() || !p.aheadIs("image[") {
+		return nil, false
+	}
+	var (
+		backupPos = p.pos
+		buff      strings.Builder
+		href      string
+	)
+	for p.ch != '[' {
+		p.read()
+	}
+	alt, pos := p.searchLineUntil(']')
+	if p.pos <= pos {
+		p.warnAt(p.pos, "image missing ']'")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	p.setPos(pos)
+	p.read()
+	if p.ch == 0 {
+		p.warnAt(p.pos, "image url missing")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	alt = strings.TrimSpace(alt)
+	if alt == "" {
+		p.warnAt(p.pos, "image alt text missing")
+	}
+	for {
+		if unicode.IsSpace(p.ch) {
+			break
+		}
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+	href = strings.TrimSpace(buff.String())
+	if href == "" {
+		p.warnAt(p.pos, "image missing url")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	return &ast.Image{Attrs: map[string]string{
+		"src": href,
+		"alt": alt,
+	}}, true
+}
+
+func (p *Parser) videoAhead() (*ast.Video, bool) {
+	if !p.isStartOfLine() || !p.aheadIs("video[") {
+		return nil, false
+	}
+	backupPos := p.pos
+	// read till '['
+	for p.ch != '[' {
+		p.read()
+	}
+	href, pos := p.searchLineUntil(']')
+	if pos <= p.pos {
+		p.warnAt(p.pos, "video missing source url")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	p.setPos(pos)
+	p.read()
+	return &ast.Video{Source: href}, true
+}
+
+func (p *Parser) imageShortAhead() (*ast.Image, bool) {
+	if p.ch != '!' || !p.isStartOfLine() || p.peek() != '[' {
+		return nil, false
+	}
+	backupPos := p.pos
+	var buff strings.Builder
+	p.read()
+	alt, pos := p.searchLineUntil(']')
+	if pos <= p.pos {
+		p.setPos(backupPos)
+		return nil, false
+	}
+	alt = strings.TrimSpace(alt)
+	if alt == "" {
+		p.warnAt(p.pos, "image alt can't be empty")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	p.setPos(pos)
+	p.read()
+	for {
+		if unicode.IsSpace(p.ch) {
+			break
+		}
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+	href := strings.TrimSpace(buff.String())
+	if href == "" {
+		p.warnAt(p.pos, "image source url missing")
+		p.setPos(backupPos)
+		return nil, false
+	}
+	return &ast.Image{Attrs: map[string]string{
+		"src": href,
+		"alt": alt,
+	}}, true
+}

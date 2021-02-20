@@ -240,11 +240,11 @@ func hasAnchor(s []rune, start int) (*ast.Anchor, int) {
 }
 
 func hasItalic(s []rune, start int) (*ast.Text, int) {
-	if s[start] != '*' {
+	if s[start] != '*' || start+1 >= len(s) || start < 0 {
 		return nil, -1
 	}
 	var (
-		pos  = start
+		pos  = start + 1
 		ch   = s[pos]
 		buff strings.Builder
 	)
@@ -255,6 +255,9 @@ func hasItalic(s []rune, start int) (*ast.Text, int) {
 			break
 		}
 		buff.WriteRune(ch)
+	}
+	if pos == start+1 {
+		return nil, -1
 	}
 	text := strings.TrimSpace(buff.String())
 	if text == "" {
@@ -268,11 +271,11 @@ func hasItalic(s []rune, start int) (*ast.Text, int) {
 }
 
 func hasBold(s []rune, start int) (*ast.Text, int) {
-	if s[start] != '_' {
+	if s[start] != '_' || start+1 >= len(s) || start < 0 {
 		return nil, -1
 	}
 	var (
-		pos  = start
+		pos  = start + 1
 		ch   = s[pos]
 		buff strings.Builder
 	)
@@ -283,6 +286,9 @@ func hasBold(s []rune, start int) (*ast.Text, int) {
 			break
 		}
 		buff.WriteRune(ch)
+	}
+	if pos == start+1 {
+		return nil, -1
 	}
 	text := strings.TrimSpace(buff.String())
 	if text == "" {
@@ -302,4 +308,50 @@ func (p *Parser) readLineRest() string {
 		p.read()
 	}
 	return buff.String()
+}
+
+func hasInlineCode(s []rune, start int) (*ast.Code, int) {
+	if s[start] != '`' || start+1 >= len(s) || start < 0 {
+		return nil, -1
+	}
+	var (
+		pos  = start + 1
+		ch   = s[pos]
+		buff strings.Builder
+	)
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if ch == '`' {
+			pos = i
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	if pos == start+1 {
+		return nil, -1
+	}
+	text := buff.String()
+	if text == "" {
+		return nil, -1
+	}
+	return &ast.Code{
+		Text: text,
+	}, pos
+}
+
+func (p *Parser) isSpaceUntilLF() bool {
+	if p.readpos >= len(p.doc) {
+		return true
+	}
+	var ch rune
+	for i := p.readpos; i < len(p.doc); i++ {
+		ch = p.doc[i]
+		if ch == '\n' {
+			return true
+		}
+		if !unicode.IsSpace(ch) {
+			return false
+		}
+	}
+	return true
 }
