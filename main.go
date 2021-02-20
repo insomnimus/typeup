@@ -1,39 +1,44 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"io"
+	"log"
 	"os"
 	"typeup/transpiler"
 )
 
 func main() {
-	if len(os.Args) == 1 {
-		fmt.Fprintln(os.Stderr, "usage: typeup <file> [out]\nif out is omitted, the document will be printed to stdout")
-		return
-	}
-	f, err := os.Open(os.Args[1])
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
-	defer f.Close()
-	if len(os.Args) >= 3 {
-		out, err := os.Open(os.Args[2])
+	log.SetFlags(0)
+	flag.Parse()
+	var (
+		in  io.Reader
+		out io.Writer
+	)
+	switch flag.NArg() {
+	case 0:
+		in = os.Stdin
+		out = os.Stdout
+	case 1:
+		in, err := os.Open(flag.Arg(0))
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(2)
+			log.Fatal(err)
 		}
+		defer in.Close()
+	case 2:
+		in, err := os.Open(flag.Arg(0))
+		if err != nil {
+			log.Fatal(err)
+		}
+		out, err := os.Open(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer in.Close()
 		defer out.Close()
-		err = transpiler.ToHTML(f, out, os.Stderr)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(2)
-		}
-		return
 	}
-	err = transpiler.ToHTML(f, os.Stdout, os.Stderr)
+	err := transpiler.ToHTML(in, out, os.Stderr)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		log.Fatal(err)
 	}
 }
