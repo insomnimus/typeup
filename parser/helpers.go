@@ -120,15 +120,19 @@ func (p *Parser) lineOnlyCharIs(char rune) bool {
 			break
 		}
 	}
-	for i := p.readpos; i < len(p.doc); i++ {
-		if i+1 >= len(p.doc) {
-			end = len(p.doc)
-			break
+	if p.readpos < len(p.doc) {
+		for i := p.readpos; i < len(p.doc); i++ {
+			if i+1 >= len(p.doc) {
+				end = len(p.doc)
+				break
+			}
+			if p.doc[i] == '\n' {
+				end = i
+				break
+			}
 		}
-		if p.doc[i] == '\n' {
-			end = i
-			break
-		}
+	} else {
+		end = len(p.doc)
 	}
 	text := spaceRemover.ReplaceAllString(string(p.doc[start:end]), "")
 	if len(text) != 1 {

@@ -217,7 +217,7 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 	}
 	// read until lf
 	p.read()
-	if p.ch!= '\n' {
+	if p.ch != '\n' {
 		p.read()
 		for p.ch != '\n' {
 			if p.ch == 0 {
