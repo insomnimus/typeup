@@ -199,14 +199,16 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 	if p.ch != '#' || !p.isStartOfLine() {
 		return nil, false
 	}
+	// get past hash
+	p.read()
 	var (
 		delim     string
 		buff      strings.Builder
 		backupPos = p.pos
 	)
 	for p.ch != '{' && p.ch != '\n' && p.ch != 0 {
-		p.read()
 		buff.WriteRune(p.ch)
+		p.read()
 	}
 	delim = strings.TrimSpace(buff.String())
 	buff.Reset()
@@ -217,7 +219,7 @@ func (p *Parser) tableAhead() (*ast.Table, bool) {
 	}
 	// read until lf
 	p.read()
-	if p.ch!= '\n' {
+	if p.ch != '\n' {
 		p.read()
 		for p.ch != '\n' {
 			if p.ch == 0 {
