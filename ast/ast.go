@@ -215,13 +215,21 @@ func (bq *BlockQuote) listHTML() string {
 
 // EoF is actually not a node but just there to signal the end of the file
 type EoF struct{}
-func(_ *EoF) HTML() string {return ""}
-func(_ *EoF) textHTML() string {return ""}
-func(_ *EoF) listHTML() string {return ""}
 
-type ThemeBreak struct {}
-func(_ *ThemeBreak) HTML() string { return "<hr>"}
+func (_ *EoF) HTML() string     { return "" }
+func (_ *EoF) textHTML() string { return "" }
+func (_ *EoF) listHTML() string { return "" }
 
-type LineBreak struct {}
-func(_ *LineBreak) HTML() string { return "<br>"}
-func(_ *LineBreak) textHTML() string { return "<br>"}
+type ThemeBreak struct{}
+
+func (_ *ThemeBreak) HTML() string { return "<hr>" }
+
+type LineBreak struct{}
+
+func (_ *LineBreak) HTML() string     { return "<br>" }
+func (_ *LineBreak) textHTML() string { return "<br>" }
+
+type Document struct {
+	Nodes []Node
+	Meta  map[string]string
+}

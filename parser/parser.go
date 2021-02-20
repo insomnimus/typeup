@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"regexp"
 	"strings"
 	"typeup/ast"
 	"unicode"
@@ -14,13 +15,74 @@ type Parser struct {
 	meta             map[string]string
 }
 
+var replacer = regexp.MustCompile(`[\r\n]+`)
+
 func New(s string) *Parser {
+	s = replacer.ReplaceAllString(s, "\n")
 	p := &Parser{
 		doc:  []rune(s),
 		meta: make(map[string]string),
 	}
 	p.read()
 	return p
+}
+
+func (p *Parser) Next() ast.Node {
+	switch p.ch {
+	case '[':
+		if node, ok := p.ulAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case '#':
+		if node, ok := p.headingAhead(); ok {
+			return node
+		}
+		if node, ok := p.tableAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case '{':
+		if node, ok := p.olAhead(); ok {
+			return node
+		}
+		// TODO: implement meta blocks
+		return p.readPlainText()
+	case '=':
+		if node, ok := p.headingShortAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case '-':
+		if node, ok := p.themeBreakAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case '`', '\'':
+		if node, ok := p.codeAhead(p.ch); ok {
+			return node
+		}
+		return p.readPlainText()
+	case '!':
+		if node, ok := p.imageShortAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case 'i':
+		if node, ok := p.imageAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case 'v':
+		if node, ok := p.videoAhead(); ok {
+			return node
+		}
+		return p.readPlainText()
+	case 0:
+		return nil
+	default:
+		return p.readPlainText()
+	}
 }
 
 func (p *Parser) codeAhead(delim rune) (*ast.Code, bool) {

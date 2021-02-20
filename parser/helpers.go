@@ -355,3 +355,7 @@ func (p *Parser) isSpaceUntilLF() bool {
 	}
 	return true
 }
+
+func (p *Parser) Warnings() []string {
+	return p.warnings
+}
