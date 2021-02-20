@@ -24,6 +24,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		out = os.Stdout
 		defer in.Close()
 	case 2:
 		in, err := os.Open(flag.Arg(0))
