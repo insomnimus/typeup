@@ -196,91 +196,82 @@ func (p *Parser) headingAhead() (*ast.Heading, bool) {
 }
 
 func (p *Parser) tableAhead() (*ast.Table, bool) {
-	backupPos := p.pos // to revert back to in case of faulty typeup file
 	if p.ch != '#' || !p.isStartOfLine() {
 		return nil, false
 	}
-	if p.lineLastChar() != '{' {
-		return nil, false
+	var (
+		delim     string
+		buff      strings.Builder
+		backupPos = p.pos
+	)
+	for p.ch != '{' && p.ch != '\n' && p.ch != 0 {
+		p.read()
+		buff.WriteRune(p.ch)
 	}
-	var delim string
-	var char rune
-	pos := p.readpos
-	for i := p.readpos; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if char == '{' {
-			pos = i + 1
-			break
-		}
-		if char == '#' || char == '}' {
-			p.warnAt(i, "%c is not allowed as a table delimiter", char)
-			return nil, false
-		}
-		if char == '\n' {
-			// todo: make sure it never comes to this block, it shouldn't
-			return nil, false
-		}
-		delim += string(char)
-	}
-	// check if there're any non space chars after '{'
-	if pos >= len(p.doc) {
-		p.warnAt(pos, "unexpected EoF in possible table declaration")
-		return nil, false
-	}
-	for i := pos; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if char == '\n' {
-			// it's good, jump over to the next line
-			pos = i + 1
-			break
-		}
-		if !unicode.IsSpace(char) {
-			p.warnAt(i, "illegal character '%c' in the same line after opening brace in table", char)
-			return nil, false
-		}
-	}
-	if pos >= len(p.doc) {
-		p.warnAt(pos, "unexpected EoF in possible table declaration")
-		return nil, false
-	}
-	delim = strings.TrimSpace(delim)
+	delim = strings.TrimSpace(buff.String())
+	buff.Reset()
 	if delim == "" {
-		p.warnAt(pos-1, "the table delimiter can't be empty")
+		p.warnAt(p.pos, "table delimiter empty")
+		p.setPos(backupPos)
 		return nil, false
 	}
-	// prepare to read the table elements
-	p.setPos(pos)
-	// read until we find the closing brace
-	var lines []string
-	var buff strings.Builder
-	for {
-		if p.ch == 0 {
-			p.warnAt(p.pos, "unexpected EoF in table")
-			p.setPos(backupPos)
-			return nil, false
-		}
-		if p.ch == '\n' {
-			lines = append(lines, buff.String())
-			buff.Reset()
-		}
-		if p.ch == '}' && p.lineOnlyCharIs(p.ch) {
-			// table done, break out
+	// read until lf
+	p.read()
+	if p.ch!= '\n' {
+		p.read()
+		for p.ch != '\n' {
+			if p.ch == 0 {
+				p.warnAt(p.pos, "unexpected eof")
+				p.setPos(backupPos)
+				return nil, false
+			}
+			if !unicode.IsSpace(p.ch) {
+				p.warnAt(p.pos, "wrong table syntax")
+				p.setPos(backupPos)
+				return nil, false
+			}
 			p.read()
-			break
 		}
 		p.read()
 	}
-	if len(lines) == 0 {
-		p.warnAt(p.pos, "table with no elements ignored")
-		p.setPos(backupPos)
-		return nil, false
-	} else if len(lines) == 0 {
-		p.warnAt(p.pos, "table missing cells")
+	// collect rows
+	var rows []string
+	var text string
+LOOP:
+	for {
+		switch p.ch {
+		case '\n':
+			text = strings.TrimSpace(buff.String())
+			if text != "" {
+				rows = append(rows, text)
+			}
+			buff.Reset()
+		case 0:
+			p.warnAt(p.pos, "unexpected EoF in table")
+			p.setPos(backupPos)
+			return nil, false
+		case '}':
+			if p.lineOnlyCharIs('}') {
+				p.read()
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					rows = append(rows, text)
+				}
+				break LOOP
+			}
+			buff.WriteRune(p.ch)
+		default:
+			buff.WriteRune(p.ch)
+		}
+		p.read()
+	}
+	if len(rows) == 0 {
+		p.warnAt(p.pos, "table is empty")
 		p.setPos(backupPos)
 		return nil, false
 	}
-	// TODO(note): do this in place
-	return parseTable(lines, delim), true
+	return parseTable(rows, delim), true
+
 }
 
 func (p *Parser) ulAhead() (*ast.UnorderedList, bool) {

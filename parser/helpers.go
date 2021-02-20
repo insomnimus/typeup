@@ -2,10 +2,13 @@ package parser
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"typeup/ast"
 	"unicode"
 )
+
+var spaceRemover = regexp.MustCompile(`\s+`)
 
 func (p *Parser) read() {
 	if p.readpos >= len(p.doc) {
@@ -109,45 +112,29 @@ func (p *Parser) aheadIs(s string) bool {
 	return string(p.doc[p.pos:p.pos+len(s)]) == s
 }
 
-func (p *Parser) lineOnlyCharIs(c rune) bool {
-	if unicode.IsSpace(c) {
-		return false
-	}
-	found := false
-	var char rune
+func (p *Parser) lineOnlyCharIs(char rune) bool {
+	var start, end int
 	for i := p.pos; i >= 0; i-- {
-		char = p.doc[i]
-		if char == '\n' {
+		if p.doc[i] == '\n' {
+			start = i + 1
 			break
-		}
-		if char == c {
-			if found {
-				return false
-			}
-			found = true
-			continue
-		}
-		if !unicode.IsSpace(char) {
-			return false
 		}
 	}
 	for i := p.readpos; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if char == '\n' {
-			return found
+		if i+1 >= len(p.doc) {
+			end = len(p.doc)
+			break
 		}
-		if char == c {
-			if found {
-				return false
-			}
-			found = true
-			continue
-		}
-		if !unicode.IsSpace(char) {
-			return false
+		if p.doc[i] == '\n' {
+			end = i
+			break
 		}
 	}
-	return found
+	text := spaceRemover.ReplaceAllString(string(p.doc[start:end]), "")
+	if len(text) != 1 {
+		return false
+	}
+	return rune(text[0]) == char
 }
 
 func isEmpty(s string) bool {
