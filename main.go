@@ -14,31 +14,35 @@ func main() {
 	var (
 		in  io.Reader
 		out io.Writer
+		err error
 	)
 	switch flag.NArg() {
 	case 0:
 		in = os.Stdin
 		out = os.Stdout
 	case 1:
-		in, err := os.Open(flag.Arg(0))
+		f, err := os.Open(flag.Arg(0))
 		if err != nil {
 			log.Fatal(err)
 		}
+		in = f
+		defer f.Close()
 		out = os.Stdout
-		defer in.Close()
 	case 2:
-		in, err := os.Open(flag.Arg(0))
+		fi, err := os.Open(flag.Arg(0))
 		if err != nil {
 			log.Fatal(err)
 		}
-		out, err := os.Open(flag.Arg(1))
+		defer fi.Close()
+		in = fi
+		fo, err := os.Open(flag.Arg(1))
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer in.Close()
-		defer out.Close()
+		out = fo
+		defer fo.Close()
 	}
-	err := transpiler.ToHTML(in, out, os.Stderr)
+	err = transpiler.ToHTML(in, out, os.Stderr)
 	if err != nil {
 		log.Fatal(err)
 	}
