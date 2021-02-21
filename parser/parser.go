@@ -405,8 +405,8 @@ LOOP:
 }
 
 func processText(source string) ast.TextNode {
-	s := []rune(source)
 	var (
+		s     = []rune(source)
 		buff  strings.Builder
 		ch    rune
 		items []ast.TextNode
@@ -418,6 +418,18 @@ LOOP:
 		ch = s[i]
 		switch ch {
 		// TODO: implement inline code snips
+		case '`', '\'':
+			if code, pos := hasInlineCode(s, i); pos > i {
+				text = strings.TrimSpace(buff.String())
+				buff.Reset()
+				if text != "" {
+					items = append(items, &ast.Text{Text: text})
+				}
+				items = append(items, code)
+				i = pos
+			} else {
+				buff.WriteRune(ch)
+			}
 		case '/':
 			if (i > 0 && s[i-1] != ':' || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
 				if italic, pos := hasItalicLong(s, i); pos > i {

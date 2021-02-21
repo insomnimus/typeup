@@ -233,3 +233,13 @@ type Document struct {
 	Nodes []Node
 	Meta  map[string]string
 }
+
+type InlineCode struct {
+	Text string
+}
+
+func (c *InlineCode) textHTML() string {
+	return fmt.Sprintf("<code> %s </code>", escape(c.Text))
+}
+
+func (c *InlineCode) listHTML() string { return c.textHTML() }

@@ -8,6 +8,7 @@ import (
 )
 
 func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {
+	// NOTE: maybe use io.ReadAll()? but for compatibility with older go versions, idk
 	data, err := ioutil.ReadAll(stdin)
 	if err != nil {
 		return err

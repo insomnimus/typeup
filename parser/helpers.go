@@ -301,35 +301,6 @@ func (p *Parser) readLineRest() string {
 	return buff.String()
 }
 
-func hasInlineCode(s []rune, start int) (*ast.Code, int) {
-	if s[start] != '`' || start+1 >= len(s) || start < 0 {
-		return nil, -1
-	}
-	var (
-		pos  = start + 1
-		ch   = s[pos]
-		buff strings.Builder
-	)
-	for i := pos; i < len(s); i++ {
-		ch = s[i]
-		if ch == '`' {
-			pos = i
-			break
-		}
-		buff.WriteRune(ch)
-	}
-	if pos == start+1 {
-		return nil, -1
-	}
-	text := buff.String()
-	if text == "" {
-		return nil, -1
-	}
-	return &ast.Code{
-		Text: text,
-	}, pos
-}
-
 func (p *Parser) isSpaceUntilLF() bool {
 	if p.readpos >= len(p.doc) {
 		return true
@@ -418,4 +389,65 @@ func hasItalicLong(s []rune, start int) (*ast.Text, int) {
 		Text:  strings.TrimSpace(buff.String()),
 		Style: ast.Italic,
 	}, pos
+}
+
+func hasInlineCode(s []rune, start int) (*ast.InlineCode, int) {
+	if start < 0 || start >= len(s) {
+		return nil, -1
+	}
+	var (
+		buff strings.Builder
+		ch   rune
+		pos  int
+	)
+	switch s[start] {
+	case '`':
+		pos = start + 1
+		if pos >= len(s) {
+			return nil, -1
+		}
+		for i := pos; i < len(s); i++ {
+			ch = s[i]
+			if ch == '\n' {
+				return nil, -1
+			}
+			if ch == '`' {
+				pos = i
+				break
+			}
+			buff.WriteRune(ch)
+		}
+		if pos == start+1 {
+			return nil, -1
+		}
+		return &ast.InlineCode{
+			Text: buff.String(),
+		}, pos
+	case '\'':
+		pos = start + 2
+		if pos >= len(s) {
+			return nil, -1
+		}
+		for i := pos; i < len(s); i++ {
+			ch = s[i]
+			if ch == '\n' {
+				return nil, -1
+			}
+			if ch == '\'' &&
+				i+1 < len(s) &&
+				s[i+1] == '\'' {
+				pos = i + 1
+				break
+			}
+			buff.WriteRune(ch)
+		}
+		if pos == start+2 {
+			return nil, -1
+		}
+		return &ast.InlineCode{
+			Text: buff.String(),
+		}, pos
+	default:
+		return nil, -1
+	}
 }

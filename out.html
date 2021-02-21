@@ -34,7 +34,7 @@ this document lives
 media are customizable. &#39;image&#39; and &#39;video&#39; are built-in. they must appear on their own line
 
 </p>
-<img alt="A fire" src="https://web.site/img.jpg">
+<img src="https://web.site/img.jpg" alt="A fire">
 <p>
 shortcut for the above:
 
@@ -105,7 +105,8 @@ theme 2
 <h1> code
  </h1>
 <p>
-&#39;&#39;code&#39;&#39; is cool. You can also use markdown-style &#39;`&#39;, which is more code-friendly and shorter but a bit harder to type.
+<code> code </code>
+is cool. You can also use markdown-style &#39;`&#39;, which is more code-friendly and shorter but a bit harder to type.
 
 </p>
 <pre><code>
@@ -121,7 +122,9 @@ plain multiline code snippets also work
 <h2> tables
  </h2>
 <p>
-tables are of the form `#&lt;delimiter&gt;{}`. Delimiters can be multi-character.
+tables are of the form
+<code> #&lt;delimiter&gt;{} </code>
+. Delimiters can be multi-character.
 
 The first row becomes the table header. Each item is trimmed of its whitespace
 
@@ -173,20 +176,32 @@ The first row becomes the table header. Each item is trimmed of its whitespace
 <h2> custom blocks
  </h2>
 <p>
-custom blocks are of the form `function:{input}`
-
-Different translators will have different built-in functions. To run shell commands, prefix the function with `!`. Some translators have a secure mode that forbids these.
+custom blocks are of the form
+<code> function:{input} </code>
+Different translators will have different built-in functions. To run shell commands, prefix the function with
+<code> ! </code>
+. Some translators have a secure mode that forbids these.
 
 </p>
 <h2> metadata
  </h2>
 <p>
-you can specify metadata in a &#39;&#39;@{}&#39;&#39; block, as key-value pairs of strings. These can be used by static site generators, Wikis and other programs
+you can specify metadata in a
+<code> @{} </code>
+block, as key-value pairs of strings. These can be used by static site generators, Wikis and other programs
 
-They need to be of the form `key = value`. Whitespace is trimmed
+They need to be of the form
+<code> key = value </code>
+. Whitespace is trimmed
 
-Additionaly, the shortcut &#39;&#39;=#&#39;&#39; exists which creates a `h1` element with its argument
+Additionaly, the shortcut
+<code> =# </code>
+exists which creates a
+<code> h1 </code>
+element with its argument
 <b> and </b>
-sets the &#39;&#39;title&#39;&#39; attribute to the content
+sets the
+<code> title </code>
+attribute to the content
 
 </p>
