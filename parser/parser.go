@@ -30,7 +30,7 @@ func (p *Parser) Next() ast.Node {
 		if node, ok := p.ulAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '#':
 		if node, ok := p.headingAhead(); ok {
 			return node
@@ -38,47 +38,47 @@ func (p *Parser) Next() ast.Node {
 		if node, ok := p.tableAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '{':
 		if node, ok := p.olAhead(); ok {
 			return node
 		}
 		// TODO: implement meta blocks
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '=':
 		if node, ok := p.headingShortAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '-':
 		if node, ok := p.themeBreakAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '`', '\'':
 		if node, ok := p.codeAhead(p.ch); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case '!':
 		if node, ok := p.imageShortAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case 'i':
 		if node, ok := p.imageAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case 'v':
 		if node, ok := p.videoAhead(); ok {
 			return node
 		}
-		return p.readPlainText()
+		return p.readPlainText(true)
 	case 0:
 		return nil
 	default:
-		return p.readPlainText()
+		return p.readPlainText(false)
 	}
 }
 
@@ -417,6 +417,7 @@ LOOP:
 	for i := 0; i < len(s); i++ {
 		ch = s[i]
 		switch ch {
+		// TODO: implement inline code snips
 		case '/':
 			if (i > 0 && s[i-1] != ':' || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
 				if italic, pos := hasItalicLong(s, i); pos > i {
@@ -576,9 +577,7 @@ LOOP:
 	}, true
 }
 
-func (p *Parser) readPlainText() *ast.TextBlock {
-	// NOTE: this func should eat any special character if it's the first iteration
-	// the reason being, this func should only be called as a fallback
+func (p *Parser) readPlainText(force bool) *ast.TextBlock {
 	var (
 		backupPos = p.pos
 		text      string
@@ -589,8 +588,20 @@ func (p *Parser) readPlainText() *ast.TextBlock {
 LOOP:
 	for {
 		switch p.ch {
+		case '`', '\'':
+			if force && p.pos == backupPos {
+				buff.WriteRune(p.ch)
+			} else if p.peek() == p.ch && p.peekN(2) == p.ch && p.isStartOfLine() {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
 		case 'i':
-			if backupPos == p.pos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.aheadIs("image[") {
 				text = strings.TrimSpace(buff.String())
@@ -602,7 +613,7 @@ LOOP:
 				buff.WriteRune(p.ch)
 			}
 		case '!':
-			if backupPos == p.pos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.peek() == '[' {
 				text = strings.TrimSpace(buff.String())
@@ -614,7 +625,7 @@ LOOP:
 				buff.WriteRune(p.ch)
 			}
 		case 'v':
-			if backupPos == p.pos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.aheadIs("video[") {
 				text = strings.TrimSpace(buff.String())
@@ -626,7 +637,7 @@ LOOP:
 				buff.WriteRune(p.ch)
 			}
 		case '-':
-			if backupPos == p.pos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.isStartOfLine() && p.peek() == '-' && p.peekN(2) == '-' {
 				text = strings.TrimSpace(buff.String())
@@ -646,13 +657,13 @@ LOOP:
 			buff.Reset()
 			if ok {
 				items = append(items, node)
-			} else if backupPos == p.pos {
+			} else if backupPos == p.pos && force {
 				buff.WriteRune(p.ch)
 			} else {
 				break LOOP
 			}
 		case '{', '#':
-			if p.pos == backupPos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.isStartOfLine() {
 				text = strings.TrimSpace(buff.String())
@@ -664,7 +675,7 @@ LOOP:
 				buff.WriteRune(p.ch)
 			}
 		case '=':
-			if p.pos == backupPos {
+			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.isStartOfLine() && p.peek() == '#' {
 				text = strings.TrimSpace(buff.String())

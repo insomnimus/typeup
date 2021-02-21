@@ -166,7 +166,7 @@ type Code struct {
 }
 
 func (c *Code) HTML() string {
-	return fmt.Sprintf("<pre><code>\n%s\n</code></pre>",
+	return fmt.Sprintf("<pre><code>%s</code></pre>",
 		escape(c.Text))
 }
 

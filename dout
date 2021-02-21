@@ -34,7 +34,7 @@ this document lives
 media are customizable. &#39;image&#39; and &#39;video&#39; are built-in. they must appear on their own line
 
 </p>
-<img alt="A fire" src="https://web.site/img.jpg">
+<img src="https://web.site/img.jpg" alt="A fire">
 <p>
 shortcut for the above:
 
@@ -44,15 +44,11 @@ shortcut for the above:
 
 <a href="xyz"> xyz
  </a>
-</p>
-<video><source src=""></video>
-<p>
-http://web.site/vid.mp4
+video
 
-</p>
-<h1> lists
- </h1>
-<p>
+<a href="http://web.site/vid.mp4">  </a>
+# lists
+
 </p>
 <ul>
 <li> lists are easy to type, no line prefixes needed  </li>
