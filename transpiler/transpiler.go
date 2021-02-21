@@ -2,6 +2,7 @@ package transpiler
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"io/ioutil"
 	"typeup/parser"
@@ -13,14 +14,26 @@ func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
+
+	var content []string
 	p := parser.New(string(data))
 	for n := p.Next(); n != nil; n = p.Next() {
-		fmt.Fprintln(stdout, n.HTML())
+		content = append(content, n.HTML())
 	}
 	if warns := p.Warnings(); len(warns) > 0 {
 		for _, w := range warns {
 			fmt.Fprintln(stderr, w)
 		}
+		doc := "<html>"
+		if title, ok := p.Meta("title"); ok {
+			doc += fmt.Sprintf("\n<head> <title>\n %s \n</title> </head>", html.EscapeString(title))
+		}
+		doc += "\n<body>"
+		fmt.Fprintln(stdout, doc)
+		for _, x := range content {
+			fmt.Fprintln(stdout, x)
+		}
+		fmt.Fprint(stdout, "</body>\n</html>")
 	}
 	return nil
 }

@@ -581,8 +581,7 @@ LOOP:
 		return nil, false
 	}
 	node := processText(text)
-	// TODO: implement this
-	// p.meta["title"]= node.BareText()
+	p.meta["title"] = node.Bare()
 	return &ast.Heading{
 		Level: 1,
 		Title: node,

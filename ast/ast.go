@@ -22,6 +22,7 @@ type Node interface {
 }
 
 type TextNode interface {
+	Bare() string
 	textHTML() string
 	listHTML() string
 }
@@ -48,6 +49,7 @@ func (t *Text) textHTML() string {
 	}
 }
 func (t *Text) listHTML() string { return t.textHTML() }
+func (t *Text) Bare() string     { return t.Text }
 
 type TextBlock struct {
 	Items []TextNode
@@ -62,6 +64,14 @@ func (t *TextBlock) HTML() string {
 	}
 	out.WriteString("</p>")
 	return out.String()
+}
+
+func (tb *TextBlock) Bare() string {
+	var elems []string
+	for _, x := range tb.Items {
+		elems = append(elems, x.Bare())
+	}
+	return strings.Join(elems, " ")
 }
 
 func (tb *TextBlock) textHTML() string {
@@ -129,6 +139,7 @@ type Anchor struct {
 	URL  string
 }
 
+func (a *Anchor) Bare() string { return a.Text.Bare() }
 func (a *Anchor) textHTML() string {
 	return fmt.Sprintf("<a href=%q> %s </a>",
 		a.URL,
@@ -172,6 +183,7 @@ func (c *Code) HTML() string {
 
 func (c *Code) textHTML() string { return c.HTML() }
 func (c *Code) listHTML() string { return c.HTML() }
+func (c *Code) Bare() string     { return c.Text }
 
 type Video struct {
 	Source string
@@ -200,6 +212,7 @@ type BlockQuote struct {
 	Text TextNode
 }
 
+func (bq *BlockQuote) Bare() string { return bq.Text.Bare() }
 func (bq *BlockQuote) HTML() string {
 	return fmt.Sprintf("<blockquote> %s </blockquote>",
 		bq.Text.textHTML())
@@ -213,13 +226,6 @@ func (bq *BlockQuote) listHTML() string {
 	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.listHTML())
 }
 
-// EoF is actually not a node but just there to signal the end of the file
-type EoF struct{}
-
-func (_ *EoF) HTML() string     { return "" }
-func (_ *EoF) textHTML() string { return "" }
-func (_ *EoF) listHTML() string { return "" }
-
 type ThemeBreak struct{}
 
 func (_ *ThemeBreak) HTML() string { return "<hr>" }
@@ -228,11 +234,7 @@ type LineBreak struct{}
 
 func (_ *LineBreak) HTML() string     { return "<br>" }
 func (_ *LineBreak) textHTML() string { return "<br>" }
-
-type Document struct {
-	Nodes []Node
-	Meta  map[string]string
-}
+func (_ *LineBreak) Bare() string     { return "" }
 
 type InlineCode struct {
 	Text string
@@ -243,3 +245,4 @@ func (c *InlineCode) textHTML() string {
 }
 
 func (c *InlineCode) listHTML() string { return c.textHTML() }
+func (c *InlineCode) Bare() string     { return c.Text }
