@@ -15,7 +15,7 @@ func (w *Warning) String() string {
 		w.pos >= len(w.doc) {
 		return fmt.Sprintf(w.format, w.args...)
 	}
-	ln := 1
+	ln := 0
 	for i, c := range w.doc {
 		if c == '\n' {
 			ln++
