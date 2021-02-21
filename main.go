@@ -35,7 +35,7 @@ func main() {
 		}
 		defer fi.Close()
 		in = fi
-		fo, err := os.Open(flag.Arg(1))
+		fo, err := os.OpenFile(flag.Arg(1), os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
