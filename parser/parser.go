@@ -272,8 +272,8 @@ LOOP:
 		p.setPos(backupPos)
 		return nil, false
 	}
-	return parseTable(rows, delim), true
 
+	return parseTable(rows, delim), true
 }
 
 func (p *Parser) ulAhead() (*ast.UnorderedList, bool) {

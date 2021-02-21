@@ -239,7 +239,7 @@ func hasItalic(s []rune, start int) (*ast.Text, int) {
 		ch   = s[pos]
 		buff strings.Builder
 	)
-	for i := start; i < len(s); i++ {
+	for i := pos; i < len(s); i++ {
 		ch = s[i]
 		if ch == '*' {
 			pos = i
@@ -270,7 +270,7 @@ func hasBold(s []rune, start int) (*ast.Text, int) {
 		ch   = s[pos]
 		buff strings.Builder
 	)
-	for i := start; i < len(s); i++ {
+	for i := pos; i < len(s); i++ {
 		ch = s[i]
 		if ch == '_' {
 			pos = i
