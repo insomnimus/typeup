@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"typeup/ast"
@@ -143,21 +142,6 @@ func (p *Parser) lineOnlyCharIs(char rune) bool {
 
 func isEmpty(s string) bool {
 	return strings.TrimSpace(s) == ""
-}
-
-func (p *Parser) warnAt(pos int, format string, args ...interface{}) {
-	if pos < 0 {
-		p.warnings = append(p.warnings, fmt.Sprintf(format, args...))
-		return
-	}
-	ln := 1
-	for i := 0; i < pos && i < len(p.doc); i++ {
-		if p.doc[i] == '\n' {
-			ln++
-		}
-	}
-	args = append([]interface{}{ln}, args...)
-	p.warnings = append(p.warnings, fmt.Sprintf("line %d: "+format, args...))
 }
 
 func (p *Parser) setPos(pos int) {
@@ -319,10 +303,6 @@ func (p *Parser) isSpaceUntilLF() bool {
 		}
 	}
 	return true
-}
-
-func (p *Parser) Warnings() []string {
-	return p.warnings
 }
 
 func hasBoldLong(s []rune, start int) (*ast.Text, int) {

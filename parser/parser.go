@@ -7,11 +7,11 @@ import (
 )
 
 type Parser struct {
-	doc              []rune
-	ch               rune
-	pos, readpos     int
-	errors, warnings []string
-	meta             map[string]string
+	doc          []rune
+	ch           rune
+	pos, readpos int
+	warnings     []*Warning
+	meta         map[string]string
 }
 
 func New(s string) *Parser {
