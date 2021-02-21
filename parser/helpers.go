@@ -353,3 +353,69 @@ func (p *Parser) isSpaceUntilLF() bool {
 func (p *Parser) Warnings() []string {
 	return p.warnings
 }
+
+func hasBoldLong(s []rune, start int) (*ast.Text, int) {
+	if start >= len(s) || start < 0 || len(s) <= start+3 {
+		return nil, -1
+	}
+	if s[start] != '=' ||
+		s[start+1] != '=' {
+		return nil, -1
+	}
+	var (
+		pos  = start + 2
+		buff strings.Builder
+		ch   rune
+	)
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if ch == '=' && i+1 < len(s) && s[i+1] == '=' {
+			pos = i + 1
+			break
+		}
+		if ch == '\n' {
+			return nil, -1
+		}
+		buff.WriteRune(ch)
+	}
+	if pos == start+2 {
+		return nil, -1
+	}
+	return &ast.Text{
+		Text:  strings.TrimSpace(buff.String()),
+		Style: ast.Bold,
+	}, pos
+}
+
+func hasItalicLong(s []rune, start int) (*ast.Text, int) {
+	if start >= len(s) || start < 0 || len(s) <= start+3 {
+		return nil, -1
+	}
+	if s[start] != '/' ||
+		s[start+1] != '/' {
+		return nil, -1
+	}
+	var (
+		pos  = start + 2
+		buff strings.Builder
+		ch   rune
+	)
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if ch == '/' && i+1 < len(s) && s[i+1] == '/' {
+			pos = i + 1
+			break
+		}
+		if ch == '\n' {
+			return nil, -1
+		}
+		buff.WriteRune(ch)
+	}
+	if pos == start+2 {
+		return nil, -1
+	}
+	return &ast.Text{
+		Text:  strings.TrimSpace(buff.String()),
+		Style: ast.Italic,
+	}, pos
+}

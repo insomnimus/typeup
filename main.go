@@ -39,6 +39,10 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		err = fo.Truncate(0)
+		if err != nil {
+			log.Fatal(err)
+		}
 		out = fo
 		defer fo.Close()
 	}

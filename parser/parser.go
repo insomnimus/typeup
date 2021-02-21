@@ -417,10 +417,42 @@ LOOP:
 	for i := 0; i < len(s); i++ {
 		ch = s[i]
 		switch ch {
+		case '/':
+			if (i > 0 && s[i-1] != ':' || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
+				if italic, pos := hasItalicLong(s, i); pos > i {
+					text = strings.TrimSpace(buff.String())
+					buff.Reset()
+					if text != "" {
+						items = append(items, &ast.Text{Text: text})
+					}
+					items = append(items, italic)
+					i = pos
+				} else {
+					buff.WriteRune(ch)
+				}
+			} else {
+				buff.WriteRune(ch)
+			}
+		case '=':
+			if (i > 0 && unicode.IsSpace(s[i-1]) || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
+				if bold, pos := hasBoldLong(s, i); pos > i {
+					text = strings.TrimSpace(buff.String())
+					buff.Reset()
+					if text != "" {
+						items = append(items, &ast.Text{Text: text})
+					}
+					items = append(items, bold)
+					i = pos
+				} else {
+					buff.WriteRune(ch)
+				}
+			} else {
+				buff.WriteRune(ch)
+			}
 		case '[':
 			if anchor, pos := hasAnchor(s, i); pos > i {
-				text = buff.String()
-				if !isEmpty(text) {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
 					items = append(items, &ast.Text{
 						Text: text,
 					})
