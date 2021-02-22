@@ -1,89 +1,69 @@
-=# typeup test-drive
-
-# formatting
-
-==bold== and //italic//, the easy-to-type way, and
-*bold* and _italic_, the nice-to-read way. All of these
-line breaks
-are ignored and this is
-one paragraph
-
-| A quote - it's just words!
-
-# links
-
-this document lives [here]https://git.sr.ht/~skuzzymiglet/typeup/tree/master/item/example.tup
-
-## media
-
-media are customizable. 'image' and 'video' are built-in. they must appear on their own line
-
-image[A fire]https://web.site/img.jpg
-shortcut for the above: ![xyz]xyz
-video[]http://web.site/vid.mp4
-
-# lists
-
-[
-lists are easy to type, no line prefixes needed
-one item goes on each line. Bold/italic etc. are processed
-To add sub-lists, just nest lists
-this is an ordered list:
-{
-eat
-sleep
-repeat
+ignore{
+This is a test document for typeup
 }
-]
 
+paragraph
+of
+many
+lines
+
+                            whitespace must be stripped from the start of the line
+
+=# title
 # h1
 ## h2
 ### h3
 #### h4
 ##### h5
 ###### h6
+==bold text==
+*also bold*
+//italic text//
+_also italic_
+`code`
+''also code''
+[//==*_''deep''-ass_ nesting*==//: https://skuz.xyz]
+[link: https://skuz.xyz]
+[:https://skuz.xyz]
+![alt text:https://thispersondoesnotexist.com/image]
+img[alt text:https://thispersondoesnotexist.com/image]
+image[alt text:https://thispersondoesnotexist.com/image]
+[;https://skuz.xyz]
+https://skuz.xyz //URLs work as expected//
+| quote
 
-# thematic breaks
-
-theme 1
+|these
+| get
+| joined
+"""
+mutiline quote,
+all joined
+"""
+===
+code block
+===
 ---
-theme 2
-
-# code
-
-''code'' is cool. You can also use markdown-style '`', which is more code-friendly and shorter but a bit harder to type.
-
-'''
-plain multiline code snippets also work
-'''
-
-```
-3 backticks do the same thing
-```
-
-## tables
-
-tables are of the form `#<delimiter>{}`. Delimiters can be multi-character.
-
-The first row becomes the table header. Each item is trimmed of its whitespace
-
-#,{
-name, statically typed, GC, compiled
-Go, yes, yes, yes
-Zig, yes, no, yes
-Python, no, yes, no
+[
+a
+b
+{
+c
+d
+e
+[
+f
+g
+]
 }
-
-## custom blocks
-
-custom blocks are of the form `function:{input}`
-
-Different translators will have different built-in functions. To run shell commands, prefix the function with `!`. Some translators have a secure mode that forbids these.
-
-## metadata
-
-you can specify metadata in a ''@{}'' block, as key-value pairs of strings. These can be used by static site generators, Wikis and other programs
-
-They need to be of the form `key = value`. Whitespace is trimmed
-
-Additionaly, the shortcut ''=#'' exists which creates a `h1` element with its argument ==and== sets the ''title'' attribute to the content
+]
+#||{
+name||statically typed||GC||compiled
+Go||yes||yes||yes
+Zig||yes||no||yes
+Python||no||yes||no
+}
+echo{
+echoed, ==styled==
+}
+@{foo = bar}
+@{author = skuzzy of the miglet}
