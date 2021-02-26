@@ -223,18 +223,18 @@ func (bq *BlockQuote) textHTML() string {
 }
 
 func (bq *BlockQuote) listHTML() string {
-	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.listHTML())
+	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.Text.listHTML())
 }
 
 type ThemeBreak struct{}
 
-func (_ *ThemeBreak) HTML() string { return "<hr>" }
+func (*ThemeBreak) HTML() string { return "<hr>" }
 
 type LineBreak struct{}
 
-func (_ *LineBreak) HTML() string     { return "<br>" }
-func (_ *LineBreak) textHTML() string { return "<br>" }
-func (_ *LineBreak) Bare() string     { return "" }
+func (*LineBreak) HTML() string     { return "<br>" }
+func (*LineBreak) textHTML() string { return "<br>" }
+func (*LineBreak) Bare() string     { return "" }
 
 type InlineCode struct {
 	Text string
