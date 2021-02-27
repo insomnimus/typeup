@@ -1,8 +1,6 @@
 package parser
 
 import (
-"fmt"
-"os"
 	"strings"
 	"typeup/ast"
 	"unicode"
@@ -136,12 +134,36 @@ func (p *Parser) linkAhead() (*ast.Anchor, bool) {
 		buff.WriteRune(p.ch)
 		p.read()
 	}
-	fmt.Fprintf(os.Stderr, "char: %c\n", p.ch)
-	//p.read() // consume the ']'
+
+	p.read() // consume the ']'
 	text = strings.TrimSpace(buff.String())
 	if text == "" {
 		p.setPos(backupPos)
 		return nil, false
+	}
+	if strings.Contains(text, "|") {
+		var t, href string
+		for i := len(text) - 1; i >= 0; i-- {
+			if text[i] == '|' {
+				t = strings.TrimSpace(text[:i])
+				href = strings.TrimSpace(text[i+1:])
+				break
+			}
+		}
+		if href != "" {
+			if t == "" && href != "" {
+				return &ast.Anchor{
+					Text: &ast.Text{Text: t},
+					URL:  href,
+				}, true
+			}
+			if href != "" {
+				return &ast.Anchor{
+					Text: processText(t),
+					URL:  href,
+				}, true
+			}
+		}
 	}
 	fields := strings.Fields(text)
 	switch len(fields) {
@@ -762,55 +784,82 @@ func (p *Parser) themeBreakAhead() (*ast.ThemeBreak, bool) {
 }
 
 func (p *Parser) imageAhead() (*ast.Image, bool) {
-	if !p.isStartOfLine() || !p.aheadIs("image[") {
+	if !p.isStartOfLine() || !(p.aheadIs("image[") || p.aheadIs("img[")) {
 		return nil, false
 	}
 	var (
 		backupPos = p.pos
 		buff      strings.Builder
-		href      string
+		text      string
 	)
 	for p.ch != '[' {
 		p.read()
 	}
-	alt, pos := p.searchLineUntil(']')
-	if pos <= p.pos {
-		p.warnAt(p.pos, "image missing ']'")
-		p.setPos(backupPos)
-		return nil, false
-	}
-	p.setPos(pos)
 	p.read()
-	if p.ch == 0 {
-		p.warnAt(p.pos, "image url missing")
+	if p.ch == ']' {
+		p.warnAt(p.pos, "image missing content")
 		p.setPos(backupPos)
 		return nil, false
 	}
-	alt = strings.TrimSpace(alt)
-	if alt == "" {
-		p.warnAt(p.pos, "image alt text missing")
-	}
-	for {
-		if unicode.IsSpace(p.ch) {
-			break
+
+	for p.ch != ']' {
+		if p.ch == 0 {
+			p.warnAt(p.pos, "image missing ']'")
+			p.setPos(backupPos)
+			return nil, false
+		}
+		if p.ch == '\n' {
+			p.warnAt(p.pos, "unexpected newline in image")
+			p.setPos(backupPos)
+			return nil, false
 		}
 		buff.WriteRune(p.ch)
 		p.read()
 	}
-	href = strings.TrimSpace(buff.String())
-	if href == "" {
-		p.warnAt(p.pos, "image missing url")
+	p.read()
+	text = strings.TrimSpace(buff.String())
+	if strings.Contains(text, "|") {
+		var alt, href string
+		for i := len(text) - 1; i >= 0; i-- {
+			if text[i] == '|' {
+				text = strings.TrimSpace(text[:i])
+				href = strings.TrimSpace(text[i+1:])
+				break
+			}
+		}
+		if alt == "" && href == "" {
+			p.warnAt(p.pos, "image missing src and alt text")
+			p.setPos(backupPos)
+			return nil, false
+		}
+		if alt != "" && href != "" {
+			return &ast.Image{Attrs: map[string]string{
+				"src": href,
+				"alt": alt,
+			}}, true
+		}
+	}
+
+	fields := strings.Fields(text)
+	switch len(fields) {
+	case 0: // impossible
+		p.warnAt(p.pos, "image missing src and alt")
 		p.setPos(backupPos)
 		return nil, false
+	case 1:
+		p.warnAt(p.pos, "image missing src attribute")
+		p.setPos(backupPos)
+		return nil, false
+	default:
+		return &ast.Image{Attrs: map[string]string{
+			"src": fields[len(fields)-1],
+			"alt": strings.Join(fields[:len(fields)-1], " "),
+		}}, true
 	}
-	return &ast.Image{Attrs: map[string]string{
-		"src": href,
-		"alt": alt,
-	}}, true
 }
 
 func (p *Parser) videoAhead() (*ast.Video, bool) {
-	if !p.isStartOfLine() || !p.aheadIs("video[") {
+	if !p.isStartOfLine() || !(p.aheadIs("video[") || p.aheadIs("vid[")) {
 		return nil, false
 	}
 	backupPos := p.pos
@@ -836,13 +885,14 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 	backupPos := p.pos
 	var buff strings.Builder
 	p.read()
-	for p.ch!= ']' {
-		if p.ch== 0 {
+	p.read()
+	for p.ch != ']' {
+		if p.ch == 0 {
 			p.warnAt(p.pos, "unexpected EoF")
 			p.setPos(backupPos)
 			return nil, false
 		}
-		if p.ch== '\n' {
+		if p.ch == '\n' {
 			p.warnAt(p.pos, "possibly image syntax error")
 			p.setPos(backupPos)
 			return nil, false
@@ -851,23 +901,47 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 		p.read()
 	}
 	p.read()
-	text:= strings.TrimSpace(buff.String())
-	if text== "" {
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
 		p.warnAt(p.pos, "image syntax possibly incorrect")
 		p.setPos(backupPos)
 		return nil, false
 	}
-	fields:= strings.Fields(text)
+
+	if strings.Contains(text, "|") {
+		var alt, href string
+		// split from the last '|'
+		for i := len(text) - 1; i >= 0; i-- {
+			if text[i] == '|' {
+				alt = strings.TrimSpace(text[:i])
+				href = strings.TrimSpace(text[i+1:])
+				break
+			}
+		}
+		if alt == "" && href == "" {
+			p.warnAt(p.pos, "image possibly missing alt and source attributes")
+			p.setPos(backupPos)
+			return nil, false
+		}
+		if href != "" && alt != "" {
+			return &ast.Image{Attrs: map[string]string{
+				"src": href,
+				"alt": alt,
+			}}, true
+		}
+	}
+
+	fields := strings.Fields(text)
 	switch len(fields) {
-		case 0: // impossible but still
+	case 0: // impossible but still
 		p.warnAt(backupPos, "image syntax possibly wrong")
 		p.setPos(backupPos)
 		return nil, false
-		case 1:
+	case 1:
 		p.warnAt(backupPos, "image alt text is missing")
 		p.setPos(backupPos)
 		return nil, false
-		default:
+	default:
 		return &ast.Image{Attrs: map[string]string{
 			"src": fields[len(fields)-1],
 			"alt": strings.Join(fields[:len(fields)-1], " "),
