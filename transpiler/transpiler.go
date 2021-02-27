@@ -20,6 +20,11 @@ func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {
 	for n := p.Next(); n != nil; n = p.Next() {
 		content = append(content, n.HTML())
 	}
+	if meta := p.Metas(); len(meta) > 0 {
+		for key, val := range meta {
+			fmt.Fprintln(stderr, key, "=", val)
+		}
+	}
 	if warns := p.Warnings(); len(warns) > 0 {
 		for _, w := range warns {
 			fmt.Fprintln(stderr, w)

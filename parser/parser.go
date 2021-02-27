@@ -1027,69 +1027,100 @@ func (p *Parser) metaAhead() bool {
 	var (
 		buff      strings.Builder
 		backupPos = p.pos
-		lines     []string
 		text      string
 	)
-
-	for {
-		if p.ch == '\n' {
-			text = strings.TrimSpace(buff.String())
-			if len(lines) == 0 && text != "" {
-				p.warnAt(p.pos, "meta block missing '}'")
+	p.read()
+	p.read()
+	if p.ch == '\n' {
+		// is multiline
+		p.read()
+		var lines []string
+	LOOP:
+		for {
+			switch p.ch {
+			case '}':
+				if p.lineOnlyCharIs(p.ch) {
+					p.read()
+					break LOOP
+				}
+				buff.WriteRune(p.ch)
+			case '\n':
+				text = strings.TrimSpace(buff.String())
+				buff.Reset()
+				if text != "" {
+					lines = append(lines, text)
+				}
+			case 0:
+				p.warnAt(p.pos, "unexpected EoF in multiline meta block")
 				p.setPos(backupPos)
 				return false
+			default:
+				buff.WriteRune(p.ch)
 			}
-			lines = append(lines, text)
-			buff.Reset()
+			p.read()
 		}
+		if len(lines) == 0 {
+			p.setPos(backupPos)
+			p.warnAt(p.pos, "meta block empty")
+			return false
+		}
+		var fields []string
+		var key string
+		for _, s := range lines {
+			fields = strings.SplitN(s, "=", 2)
+			if len(fields) != 2 {
+				continue
+			}
+			key = strings.TrimSpace(fields[0])
+			if key == "" {
+				continue
+			}
+			p.meta[key] = strings.TrimSpace(fields[1])
+		}
+		return true
+	}
+	// means it's a one liner
+	for {
 		if p.ch == 0 {
 			p.warnAt(p.pos, "unexpected EoF in meta block")
 			p.setPos(backupPos)
 			return false
 		}
+		if p.ch == '\n' {
+			text = strings.TrimSpace(buff.String())
+			if text != "" {
+				p.warnAt(p.pos, "linebreak in one liner meta block not allowed")
+			} else {
+				p.warnAt(p.pos, "space after '@{' not allowed in multiline meta blocks")
+			}
+			p.setPos(backupPos)
+			return false
+		}
 		if p.ch == '}' {
-			if len(lines) == 0 {
-				p.read()
-				lines = append(lines, text)
-				break
-			}
-			if p.isStartOfLine() {
-				p.read()
-				break
-			}
+			p.read()
+			break
 		}
 		buff.WriteRune(p.ch)
 		p.read()
 	}
-	// probably redundant but won't hurt
-	if len(lines) == 0 {
-		p.warnAt(backupPos, "meta block empty")
+	text = strings.TrimSpace(buff.String())
+	if text == "" || !strings.Contains(text, "=") {
+		p.warnAt(backupPos, "invalid meta block syntax")
 		p.setPos(backupPos)
 		return false
 	}
-	var (
-		key, val string
-		fields   []string
-	)
-
-	for _, s := range lines {
-		text = strings.TrimSpace(s)
-		if text == "" {
-			continue
-		}
-		if !strings.Contains(text, "=") {
-			continue
-		}
-		fields = strings.SplitN(text, "=", 2)
-		if len(fields) != 2 {
-			continue
-		}
-		key = strings.TrimSpace(fields[0])
-		val = strings.TrimSpace(fields[1])
-		if key == "" {
-			continue
-		}
-		p.meta[key] = val
+	fields := strings.SplitN(text, "=", 2)
+	if len(fields) != 2 {
+		p.setPos(backupPos)
+		p.warnAt(p.pos, "invalid meta block syntax")
+		return false
 	}
+	key := strings.TrimSpace(fields[0])
+	if key == "" {
+		p.warnAt(p.pos, "meta key can't be empty")
+		p.setPos(backupPos)
+		return false
+	}
+	p.meta[key] = strings.TrimSpace(fields[1])
 	return true
 }
