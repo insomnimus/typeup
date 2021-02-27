@@ -49,13 +49,16 @@ func (p *Parser) Next() ast.Node {
 		if node, ok := p.headingShortAhead(); ok {
 			return node
 		}
+		if node, ok := p.codeAhead(p.ch); ok {
+			return node
+		}
 		return p.readPlainText(true)
 	case '-':
 		if node, ok := p.themeBreakAhead(); ok {
 			return node
 		}
 		return p.readPlainText(true)
-	case '`', '\'':
+	case '`':
 		if node, ok := p.codeAhead(p.ch); ok {
 			return node
 		}
@@ -68,6 +71,9 @@ func (p *Parser) Next() ast.Node {
 	case 'i':
 		if node, ok := p.imageAhead(); ok {
 			return node
+		}
+		if p.ignoreAhead() {
+			return p.Next()
 		}
 		return p.readPlainText(true)
 	case 'v':
@@ -946,5 +952,53 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 			"src": fields[len(fields)-1],
 			"alt": strings.Join(fields[:len(fields)-1], " "),
 		}}, true
+	}
+}
+
+func (p *Parser) ignoreAhead() bool {
+	if !p.isStartOfLine() || !p.aheadIs("ignore") {
+		return false
+	}
+	backupPos := p.pos
+	for range "ignore" {
+		p.read()
+	}
+	for p.ch != '{' {
+		if p.ch == '\n' || p.ch == 0 {
+			p.setPos(backupPos)
+			return false
+		}
+		if !unicode.IsSpace(p.ch) {
+			p.setPos(backupPos)
+			return false
+		}
+		p.read()
+	}
+	p.read()
+	for {
+		if p.ch == 0 {
+			p.setPos(backupPos)
+			return false
+		}
+		if p.ch == '\n' {
+			break
+		}
+		if !unicode.IsSpace(p.ch) {
+			p.setPos(backupPos)
+			return false
+		}
+		p.read()
+	}
+
+	for {
+		if p.ch == '}' && p.lineOnlyCharIs('}') {
+			p.read()
+			return true
+		}
+		if p.ch == 0 {
+			p.setPos(backupPos)
+			return false
+		}
+		p.read()
 	}
 }
