@@ -26,6 +26,11 @@ func New(s string) *Parser {
 
 func (p *Parser) Next() ast.Node {
 	switch p.ch {
+	case '@':
+		if p.metaAhead() {
+			return p.Next()
+		}
+		return p.readPlainText(true)
 	case '[':
 		if node, ok := p.ulAhead(); ok {
 			return node
@@ -638,6 +643,18 @@ func (p *Parser) readPlainText(force bool) *ast.TextBlock {
 LOOP:
 	for {
 		switch p.ch {
+		case '@':
+			if p.pos == backupPos && force {
+				buff.WriteRune(p.ch)
+			} else if p.isStartOfLine() && p.peek() == '{' {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
 		case '`', '\'':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
@@ -1001,4 +1018,78 @@ func (p *Parser) ignoreAhead() bool {
 		}
 		p.read()
 	}
+}
+
+func (p *Parser) metaAhead() bool {
+	if !p.isStartOfLine() || p.ch != '@' || p.peek() != '{' {
+		return false
+	}
+	var (
+		buff      strings.Builder
+		backupPos = p.pos
+		lines     []string
+		text      string
+	)
+
+	for {
+		if p.ch == '\n' {
+			text = strings.TrimSpace(buff.String())
+			if len(lines) == 0 && text != "" {
+				p.warnAt(p.pos, "meta block missing '}'")
+				p.setPos(backupPos)
+				return false
+			}
+			lines = append(lines, text)
+			buff.Reset()
+		}
+		if p.ch == 0 {
+			p.warnAt(p.pos, "unexpected EoF in meta block")
+			p.setPos(backupPos)
+			return false
+		}
+		if p.ch == '}' {
+			if len(lines) == 0 {
+				p.read()
+				lines = append(lines, text)
+				break
+			}
+			if p.isStartOfLine() {
+				p.read()
+				break
+			}
+		}
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+	// probably redundant but won't hurt
+	if len(lines) == 0 {
+		p.warnAt(backupPos, "meta block empty")
+		p.setPos(backupPos)
+		return false
+	}
+	var (
+		key, val string
+		fields   []string
+	)
+
+	for _, s := range lines {
+		text = strings.TrimSpace(s)
+		if text == "" {
+			continue
+		}
+		if !strings.Contains(text, "=") {
+			continue
+		}
+		fields = strings.SplitN(text, "=", 2)
+		if len(fields) != 2 {
+			continue
+		}
+		key = strings.TrimSpace(fields[0])
+		val = strings.TrimSpace(fields[1])
+		if key == "" {
+			continue
+		}
+		p.meta[key] = val
+	}
+	return true
 }
