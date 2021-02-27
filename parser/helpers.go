@@ -172,46 +172,49 @@ func (p *Parser) lineLastChar() rune {
 }
 
 func hasAnchor(s []rune, start int) (*ast.Anchor, int) {
-	if s[start] != '[' {
+	if s[start] != '[' || start+1 >= len(s) || start < 0 {
 		return nil, -1
 	}
 	var (
 		buff strings.Builder
 		ch   rune
-		pos  = start
+		pos  = start + 1
 	)
-	for i := start; i < len(s); i++ {
-		if i+1 == len(s) {
-			return nil, -1
-		}
-		ch = s[i]
-		if ch == ']' {
-			pos = i + 1
-			break
-		}
-		buff.WriteRune(ch)
-	}
-	if unicode.IsSpace(s[pos]) {
-		return nil, -1
-	}
-	text := strings.TrimSpace(buff.String())
-	buff.Reset()
+
 	for i := pos; i < len(s); i++ {
 		ch = s[i]
-		if unicode.IsSpace(ch) {
+		if ch == '\n' {
+			return nil, -1
+		}
+		if ch == ']' {
 			pos = i
 			break
 		}
 		buff.WriteRune(ch)
 	}
-	href := buff.String()
-	if href == "" {
+	if pos == start+1 {
 		return nil, -1
 	}
+	text := strings.TrimSpace(buff.String())
 	if text == "" {
-		text = href
+		return nil, -1
 	}
-	return &ast.Anchor{Text: processText(text), URL: href}, pos
+	fields := strings.Fields(text)
+	switch len(fields) {
+	case 0: // impossible
+		return nil, -1
+	case 1:
+		return &ast.Anchor{
+			Text: &ast.Text{Text: text},
+			URL:  text,
+		}, pos
+	default:
+		text = strings.Join(fields[:len(fields)-1], " ")
+		return &ast.Anchor{
+			Text: processText(text),
+			URL:  fields[len(fields)-1],
+		}, pos
+	}
 }
 
 func hasItalic(s []rune, start int) (*ast.Text, int) {

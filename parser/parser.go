@@ -1,6 +1,8 @@
 package parser
 
 import (
+"fmt"
+"os"
 	"strings"
 	"typeup/ast"
 	"unicode"
@@ -120,35 +122,44 @@ func (p *Parser) linkAhead() (*ast.Anchor, bool) {
 	if p.ch != '[' {
 		return nil, false
 	}
-	var text, href strings.Builder
-	var char rune
-	var idx int
-	for i := p.readpos; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if char == '\n' {
+	var (
+		backupPos = p.pos
+		buff      strings.Builder
+		text      string
+	)
+	p.read()
+	for p.ch != ']' {
+		if p.ch == '\n' || p.ch == 0 {
+			p.setPos(backupPos)
 			return nil, false
 		}
-		if char == ']' {
-			idx = i + 1
-			break
-		}
-		text.WriteRune(char)
+		buff.WriteRune(p.ch)
+		p.read()
 	}
-	if unicode.IsSpace(p.doc[idx]) {
+	fmt.Fprintf(os.Stderr, "char: %c\n", p.ch)
+	//p.read() // consume the ']'
+	text = strings.TrimSpace(buff.String())
+	if text == "" {
+		p.setPos(backupPos)
 		return nil, false
 	}
-	for i := idx; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if unicode.IsSpace(char) {
-			p.setPos(i)
-			break
-		}
-		href.WriteRune(char)
+	fields := strings.Fields(text)
+	switch len(fields) {
+	case 0: // not possible but don2t wanna take chances
+		p.setPos(backupPos)
+		return nil, false
+	case 1:
+		return &ast.Anchor{
+			Text: &ast.Text{Text: text},
+			URL:  text,
+		}, true
+	default:
+		text = strings.Join(fields[:len(fields)-1], " ")
+		return &ast.Anchor{
+			Text: processText(text),
+			URL:  fields[len(fields)-1],
+		}, true
 	}
-	return &ast.Anchor{
-		Text: processText(text.String()),
-		URL:  href.String(),
-	}, true
 }
 
 func (p *Parser) headingAhead() (*ast.Heading, bool) {
@@ -668,6 +679,7 @@ LOOP:
 			buff.Reset()
 			if ok {
 				items = append(items, node)
+				continue LOOP
 			} else if backupPos == p.pos && force {
 				buff.WriteRune(p.ch)
 			} else {
@@ -824,34 +836,41 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 	backupPos := p.pos
 	var buff strings.Builder
 	p.read()
-	alt, pos := p.searchLineUntil(']')
-	if pos <= p.pos {
-		p.setPos(backupPos)
-		return nil, false
-	}
-	alt = strings.TrimSpace(alt)
-	if alt == "" {
-		p.warnAt(p.pos, "image alt can't be empty")
-		p.setPos(backupPos)
-		return nil, false
-	}
-	p.setPos(pos)
-	p.read()
-	for {
-		if unicode.IsSpace(p.ch) {
-			break
+	for p.ch!= ']' {
+		if p.ch== 0 {
+			p.warnAt(p.pos, "unexpected EoF")
+			p.setPos(backupPos)
+			return nil, false
+		}
+		if p.ch== '\n' {
+			p.warnAt(p.pos, "possibly image syntax error")
+			p.setPos(backupPos)
+			return nil, false
 		}
 		buff.WriteRune(p.ch)
 		p.read()
 	}
-	href := strings.TrimSpace(buff.String())
-	if href == "" {
-		p.warnAt(p.pos, "image source url missing")
+	p.read()
+	text:= strings.TrimSpace(buff.String())
+	if text== "" {
+		p.warnAt(p.pos, "image syntax possibly incorrect")
 		p.setPos(backupPos)
 		return nil, false
 	}
-	return &ast.Image{Attrs: map[string]string{
-		"src": href,
-		"alt": alt,
-	}}, true
+	fields:= strings.Fields(text)
+	switch len(fields) {
+		case 0: // impossible but still
+		p.warnAt(backupPos, "image syntax possibly wrong")
+		p.setPos(backupPos)
+		return nil, false
+		case 1:
+		p.warnAt(backupPos, "image alt text is missing")
+		p.setPos(backupPos)
+		return nil, false
+		default:
+		return &ast.Image{Attrs: map[string]string{
+			"src": fields[len(fields)-1],
+			"alt": strings.Join(fields[:len(fields)-1], " "),
+		}}, true
+	}
 }

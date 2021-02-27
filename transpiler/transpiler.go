@@ -24,16 +24,17 @@ func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {
 		for _, w := range warns {
 			fmt.Fprintln(stderr, w)
 		}
-		doc := "<html>"
-		if title, ok := p.Meta("title"); ok {
-			doc += fmt.Sprintf("\n<head> <title>\n %s \n</title> </head>", html.EscapeString(title))
-		}
-		doc += "\n<body>"
-		fmt.Fprintln(stdout, doc)
-		for _, x := range content {
-			fmt.Fprintln(stdout, x)
-		}
-		fmt.Fprint(stdout, "</body>\n</html>")
 	}
+	doc := "<html>"
+	if title, ok := p.Meta("title"); ok {
+		doc += fmt.Sprintf("\n<head> <title>\n %s \n</title> </head>", html.EscapeString(title))
+	}
+	doc += "\n<body>"
+	fmt.Fprintln(stdout, doc)
+	for _, x := range content {
+		fmt.Fprintln(stdout, x)
+	}
+	fmt.Fprint(stdout, "</body>\n</html>")
+
 	return nil
 }
