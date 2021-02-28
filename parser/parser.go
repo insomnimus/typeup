@@ -26,6 +26,11 @@ func New(s string) *Parser {
 
 func (p *Parser) Next() ast.Node {
 	switch p.ch {
+	case '"':
+		if node, ok := p.multilineQuoteAhead(); ok {
+			return node
+		}
+		return p.readPlainText(true)
 	case '@':
 		if p.metaAhead() {
 			return p.Next()
@@ -48,7 +53,6 @@ func (p *Parser) Next() ast.Node {
 		if node, ok := p.olAhead(); ok {
 			return node
 		}
-		// TODO: implement meta blocks
 		return p.readPlainText(true)
 	case '=':
 		if node, ok := p.headingShortAhead(); ok {
@@ -106,7 +110,7 @@ LOOP:
 	for {
 		switch p.ch {
 		case delim:
-			if p.peek() == delim && p.peekN(2) == delim {
+			if p.isStartOfLine() && p.peek() == delim && p.peekN(2) == delim {
 				p.read()
 				p.read()
 				p.read()
@@ -461,7 +465,6 @@ LOOP:
 	for i := 0; i < len(s); i++ {
 		ch = s[i]
 		switch ch {
-		// TODO: implement inline code snips
 		case '`', '\'':
 			if code, pos := hasInlineCode(s, i); pos > i {
 				text = strings.TrimSpace(buff.String())
@@ -643,6 +646,18 @@ func (p *Parser) readPlainText(force bool) *ast.TextBlock {
 LOOP:
 	for {
 		switch p.ch {
+		case '"':
+			if force && p.pos == backupPos {
+				buff.WriteRune(p.ch)
+			} else if p.isStartOfLine() && p.aheadIs(`"""`) {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
+			} else {
+				buff.WriteRune(p.ch)
+			}
 		case '@':
 			if p.pos == backupPos && force {
 				buff.WriteRune(p.ch)
@@ -655,7 +670,7 @@ LOOP:
 			} else {
 				buff.WriteRune(p.ch)
 			}
-		case '`', '\'':
+		case '`':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
 			} else if p.peek() == p.ch && p.peekN(2) == p.ch && p.isStartOfLine() {
@@ -670,7 +685,7 @@ LOOP:
 		case 'i':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
-			} else if p.aheadIs("image[") {
+			} else if p.isStartOfLine() && (p.aheadIs("image[") || p.aheadIs("ignore{")) {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, processText(text))
@@ -682,7 +697,7 @@ LOOP:
 		case '!':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
-			} else if p.peek() == '[' {
+			} else if p.isStartOfLine() && p.peek() == '[' {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, processText(text))
@@ -694,7 +709,7 @@ LOOP:
 		case 'v':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
-			} else if p.aheadIs("video[") {
+			} else if p.isStartOfLine() && p.aheadIs("video[") {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, processText(text))
@@ -751,23 +766,24 @@ LOOP:
 					items = append(items, processText(text))
 				}
 				break LOOP
+			} else if p.isStartOfLine() && p.peek() == '=' && p.peekN(2) == '=' {
+				text = strings.TrimSpace(buff.String())
+				if text != "" {
+					items = append(items, processText(text))
+				}
+				break LOOP
 			} else {
 				buff.WriteRune(p.ch)
 			}
+		// TODO: implement multiline quotes (p.readBlockQuote)
 		case '|':
-			if p.isStartOfLine() && p.peek() != '\n' && unicode.IsSpace(p.peek()) {
+			if node, ok := p.blockQuoteAhead(); ok {
 				text = strings.TrimSpace(buff.String())
 				buff.Reset()
 				if text != "" {
 					items = append(items, processText(text))
 				}
-				p.read()
-				text = strings.TrimSpace(p.readLineRest())
-				if text != "" {
-					items = append(items, &ast.BlockQuote{
-						Text: processText(text),
-					})
-				}
+				items = append(items, node)
 			} else {
 				buff.WriteRune(p.ch)
 			}
@@ -1123,4 +1139,104 @@ func (p *Parser) metaAhead() bool {
 	}
 	p.meta[key] = strings.TrimSpace(fields[1])
 	return true
+}
+
+func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
+	if p.ch != '|' || !p.isStartOfLine() {
+		return nil, false
+	}
+	if !unicode.IsSpace(p.peek()) {
+		p.warnAt(p.pos, "missing space after '|' in block quote")
+		return nil, false
+	}
+	if p.peek() == '\n' {
+		return nil, false
+	}
+	var (
+		buff      strings.Builder
+		backupPos = p.pos
+	)
+	p.read()
+	p.read()
+
+	for {
+		if p.ch == 0 {
+			break
+		}
+		if p.ch == '\n' {
+			if p.peek() != '|' {
+				break
+			}
+			if p.peekN(2) == '\n' {
+				buff.WriteRune(p.ch)
+				p.read()
+				p.read()
+				continue
+			}
+			if !unicode.IsSpace(p.peekN(2)) {
+				break
+			}
+			p.read()
+			p.read()
+		}
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		p.setPos(backupPos)
+		p.warnAt(p.pos, "empty block quote")
+		return nil, false
+	}
+	return &ast.BlockQuote{
+		Text: processText(text),
+	}, true
+}
+
+func (p *Parser) multilineQuoteAhead() (*ast.BlockQuote, bool) {
+	if !p.isStartOfLine() || !p.aheadIs(`"""`) {
+		return nil, false
+	}
+	var (
+		backupPos = p.pos
+		buff      strings.Builder
+	)
+	for range `"""` {
+		p.read()
+	}
+	if p.ch != '\n' {
+		p.warnAt(p.pos, `no characters allowed after '"""' in multiline block quotes`)
+		p.setPos(backupPos)
+		return nil, false
+	}
+	p.read()
+	for {
+		if p.ch == '"' && p.isStartOfLine() && p.aheadIs(`"""`) {
+			p.read()
+			p.read()
+			p.read()
+			if p.ch == '\n' || p.ch == 0 {
+				break
+			}
+			p.warnAt(p.pos, `no characters allowed in the same line after closing '"""' in block quote`)
+			buff.WriteString(`"""`)
+		}
+		if p.ch == 0 {
+			p.setPos(backupPos)
+			p.warnAt(p.pos, "unexpected EoF in multiline block quote")
+			return nil, false
+		}
+		buff.WriteRune(p.ch)
+		p.read()
+	}
+
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		p.setPos(backupPos)
+		p.warnAt(p.pos, "multiline block quote is empty")
+		return nil, false
+	}
+	return &ast.BlockQuote{
+		Text: processText(text),
+	}, true
 }
