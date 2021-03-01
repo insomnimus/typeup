@@ -22,17 +22,20 @@ lines
 _also italic_
 `code`
 ''also code''
-[//==*_''deep''-ass_ nesting*==//: https://skuz.xyz]
-[link: https://skuz.xyz]
-[:https://skuz.xyz]
-![alt text:https://thispersondoesnotexist.com/image]
-img[alt text:https://thispersondoesnotexist.com/image]
-image[alt text:https://thispersondoesnotexist.com/image]
-[;https://skuz.xyz]
-https://skuz.xyz //URLs work as expected//
+//==_*''nesting''*_==//
+[link | https://skuz.xyz]
+[link https://skuz.xyz]
+[https://skuz.xyz]
+![alt text https://thispersondoesnotexist.com/image]
+img[alt text https://thispersondoesnotexist.com/image]
+image[alt text https://thispersondoesnotexist.com/image]
+[|https://skuz.xyz]
+https://skuz.xyz
 | quote
 
-| these
+|these
+| should
+|not
 | get
 | joined
 """
@@ -66,4 +69,5 @@ echo{
 echoed, ==styled==
 }
 @{foo = bar}
-@{author = skuzzy of the miglet}
+@{date = 09/02/2091
+lang = english}
