@@ -89,15 +89,9 @@ func (p *Parser) lineOnlyCharIs(char rune) bool {
 	return rune(text[0]) == char
 }
 
-func isEmpty(s string) bool {
-	return strings.TrimSpace(s) == ""
-}
-
 func (p *Parser) setPos(pos int) {
-	if pos < 0 {
-		return
-	}
-	if pos >= len(p.doc) {
+	if pos < 0 ||
+		pos >= len(p.doc) {
 		return
 	}
 	p.pos = pos
@@ -148,6 +142,21 @@ func hasAnchor(s []rune, start int) (*ast.Anchor, int) {
 	if text == "" {
 		return nil, -1
 	}
+	if strings.Contains(text, "|") {
+		fields := strings.SplitN(text, "|", 2)
+		switch len(fields) {
+		case 1:
+			return &ast.Anchor{
+				Text: &ast.Text{Text: strings.TrimSpace(fields[0])},
+				URL:  strings.TrimSpace(fields[0]),
+			}, pos
+		case 2:
+			return &ast.Anchor{
+				Text: processText(strings.TrimSpace(fields[0])),
+				URL:  strings.TrimSpace(fields[1]),
+			}, pos
+		}
+	}
 	fields := strings.Fields(text)
 	switch len(fields) {
 	case 0: // impossible
@@ -166,7 +175,29 @@ func hasAnchor(s []rune, start int) (*ast.Anchor, int) {
 	}
 }
 
+func hasBold(s []rune, start int) (*ast.Text, int) {
+	switch s[start] {
+	case '=':
+		return hasBoldLong(s, start)
+	case '*':
+		return hasBoldShort(s, start)
+	default:
+		return nil, -1
+	}
+}
+
 func hasItalic(s []rune, start int) (*ast.Text, int) {
+	switch s[start] {
+	case '/':
+		return hasItalicLong(s, start)
+	case '_':
+		return hasItalicShort(s, start)
+	default:
+		return nil, -1
+	}
+}
+
+func hasBoldShort(s []rune, start int) (*ast.Text, int) {
 	if s[start] != '*' || start+1 >= len(s) || start < 0 {
 		return nil, -1
 	}
@@ -197,7 +228,47 @@ func hasItalic(s []rune, start int) (*ast.Text, int) {
 	return &ast.Text{Style: ast.Italic, Text: text}, pos
 }
 
-func hasBold(s []rune, start int) (*ast.Text, int) {
+func hasBoldLong(s []rune, start int) (*ast.Text, int) {
+	if start+4 >= len(s) ||
+		s[start] != '=' || s[start+1] != '=' {
+		return nil, -1
+	}
+	var (
+		pos  = start + 2
+		buff strings.Builder
+		ch   rune
+	)
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if ch == '\n' {
+			return nil, -1
+		}
+		if ch == '=' &&
+			i+1 < len(s) &&
+			s[i+1] == '=' {
+			pos = i + 1
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	if pos == start+2 {
+		return nil, -1
+	}
+	text := []rune(strings.TrimSpace(buff.String()))
+	if len(text) == 0 {
+		return nil, -1
+	}
+	if node, ps := hasItalic(text, 0); len(text) == ps+1 {
+		node.Style = ast.BoldAndItalic
+		return node, pos
+	}
+	return &ast.Text{
+		Text:  string(text),
+		Style: ast.Bold,
+	}, pos
+}
+
+func hasItalicShort(s []rune, start int) (*ast.Text, int) {
 	if s[start] != '_' || start+1 >= len(s) || start < 0 {
 		return nil, -1
 	}
@@ -228,6 +299,45 @@ func hasBold(s []rune, start int) (*ast.Text, int) {
 	return &ast.Text{Style: ast.Bold, Text: text}, pos
 }
 
+func hasItalicLong(s []rune, start int) (*ast.Text, int) {
+	if start+4 >= len(s) ||
+		s[start] != '/' || s[start+1] != '/' {
+		return nil, -1
+	}
+	var (
+		buff strings.Builder
+		pos  = start + 2
+		ch   rune
+	)
+	for i := pos; i < len(s); i++ {
+		ch = s[i]
+		if ch == '\n' {
+			return nil, -1
+		}
+		if ch == '/' &&
+			i+1 < len(s) && s[i+1] == '/' {
+			pos = i + 1
+			break
+		}
+		buff.WriteRune(ch)
+	}
+	if pos == start+2 {
+		return nil, -1
+	}
+	text := []rune(strings.TrimSpace(buff.String()))
+	if len(text) == 0 {
+		return nil, -1
+	}
+	if node, ps := hasBold(text, 0); ps == len(text)-1 {
+		node.Style = ast.BoldAndItalic
+		return node, pos
+	}
+	return &ast.Text{
+		Text:  string(text),
+		Style: ast.Italic,
+	}, pos
+}
+
 func (p *Parser) readLineRest() string {
 	var buff strings.Builder
 	for p.ch != '\n' && p.ch != 0 {
@@ -255,72 +365,6 @@ func (p *Parser) isSpaceUntilLF() bool {
 		}
 	}
 	return true
-}
-
-func hasBoldLong(s []rune, start int) (*ast.Text, int) {
-	if start >= len(s) || start < 0 || len(s) <= start+3 {
-		return nil, -1
-	}
-	if s[start] != '=' ||
-		s[start+1] != '=' {
-		return nil, -1
-	}
-	var (
-		pos  = start + 2
-		buff strings.Builder
-		ch   rune
-	)
-	for i := pos; i < len(s); i++ {
-		ch = s[i]
-		if ch == '=' && i+1 < len(s) && s[i+1] == '=' {
-			pos = i + 1
-			break
-		}
-		if ch == '\n' {
-			return nil, -1
-		}
-		buff.WriteRune(ch)
-	}
-	if pos == start+2 {
-		return nil, -1
-	}
-	return &ast.Text{
-		Text:  strings.TrimSpace(buff.String()),
-		Style: ast.Bold,
-	}, pos
-}
-
-func hasItalicLong(s []rune, start int) (*ast.Text, int) {
-	if start >= len(s) || start < 0 || len(s) <= start+3 {
-		return nil, -1
-	}
-	if s[start] != '/' ||
-		s[start+1] != '/' {
-		return nil, -1
-	}
-	var (
-		pos  = start + 2
-		buff strings.Builder
-		ch   rune
-	)
-	for i := pos; i < len(s); i++ {
-		ch = s[i]
-		if ch == '/' && i+1 < len(s) && s[i+1] == '/' {
-			pos = i + 1
-			break
-		}
-		if ch == '\n' {
-			return nil, -1
-		}
-		buff.WriteRune(ch)
-	}
-	if pos == start+2 {
-		return nil, -1
-	}
-	return &ast.Text{
-		Text:  strings.TrimSpace(buff.String()),
-		Style: ast.Italic,
-	}, pos
 }
 
 func hasInlineCode(s []rune, start int) (*ast.InlineCode, int) {

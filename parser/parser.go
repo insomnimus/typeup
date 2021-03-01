@@ -99,7 +99,9 @@ func (p *Parser) Next() ast.Node {
 }
 
 func (p *Parser) codeAhead(delim rune) (*ast.Code, bool) {
-	if p.ch != delim || p.peek() != p.ch || p.peekN(2) != p.ch {
+	if p.ch != delim ||
+		p.peek() != p.ch ||
+		p.peekN(2) != p.ch {
 		return nil, false
 	}
 	backupPos := p.pos
@@ -111,7 +113,9 @@ LOOP:
 	for {
 		switch p.ch {
 		case delim:
-			if p.isStartOfLine() && p.peek() == delim && p.peekN(2) == delim {
+			if p.isStartOfLine() &&
+				p.peek() == delim &&
+				p.peekN(2) == delim {
 				p.read()
 				p.read()
 				p.read()
@@ -479,8 +483,9 @@ LOOP:
 				buff.WriteRune(ch)
 			}
 		case '/':
-			if (i > 0 && s[i-1] != ':' || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
-				if italic, pos := hasItalicLong(s, i); pos > i {
+			if (i > 0 && s[i-1] != ':' || i == 0) &&
+				(i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
+				if italic, pos := hasItalic(s, i); pos > i {
 					text = strings.TrimSpace(buff.String())
 					buff.Reset()
 					if text != "" {
@@ -495,8 +500,9 @@ LOOP:
 				buff.WriteRune(ch)
 			}
 		case '=':
-			if (i > 0 && unicode.IsSpace(s[i-1]) || i == 0) && (i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
-				if bold, pos := hasBoldLong(s, i); pos > i {
+			if (i > 0 && unicode.IsSpace(s[i-1]) || i == 0) &&
+				(i+1 < len(s) && s[i+1] == ch || i+1 >= len(s)) {
+				if bold, pos := hasBold(s, i); pos > i {
 					text = strings.TrimSpace(buff.String())
 					buff.Reset()
 					if text != "" {
@@ -526,7 +532,7 @@ LOOP:
 				buff.WriteRune(ch)
 			}
 		case '*':
-			if item, pos := hasItalic(s, i); pos > i {
+			if item, pos := hasBold(s, i); pos > i {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, &ast.Text{
@@ -541,7 +547,7 @@ LOOP:
 				buff.WriteRune(ch)
 			}
 		case '_':
-			if item, pos := hasBold(s, i); pos > i {
+			if item, pos := hasItalic(s, i); pos > i {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, &ast.Text{
@@ -686,7 +692,8 @@ LOOP:
 		case 'i':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
-			} else if p.isStartOfLine() && (p.aheadIs("image[") || p.aheadIs("ignore{")) {
+			} else if p.isStartOfLine() &&
+				(p.aheadIs("image[") || p.aheadIs("img[") || p.aheadIs("ignore{")) {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, processText(text))
@@ -710,7 +717,8 @@ LOOP:
 		case 'v':
 			if force && p.pos == backupPos {
 				buff.WriteRune(p.ch)
-			} else if p.isStartOfLine() && p.aheadIs("video[") {
+			} else if p.isStartOfLine() &&
+				(p.aheadIs("video[") || p.aheadIs("vid[")) {
 				text = strings.TrimSpace(buff.String())
 				if text != "" {
 					items = append(items, processText(text))
@@ -823,7 +831,8 @@ func (p *Parser) themeBreakAhead() (*ast.ThemeBreak, bool) {
 }
 
 func (p *Parser) imageAhead() (*ast.Image, bool) {
-	if !p.isStartOfLine() || !(p.aheadIs("image[") || p.aheadIs("img[")) {
+	if !p.isStartOfLine() ||
+		!(p.aheadIs("image[") || p.aheadIs("img[")) {
 		return nil, false
 	}
 	var (
@@ -1158,13 +1167,8 @@ func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
 			break
 		}
 		if p.ch == '\n' {
-			if p.peek() != '|' {
-				break
-			}
-			buff.WriteRune(p.ch)
 			p.read()
-			p.read()
-			continue
+			break
 		}
 		buff.WriteRune(p.ch)
 		p.read()
