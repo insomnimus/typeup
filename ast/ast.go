@@ -58,8 +58,13 @@ type TextBlock struct {
 func (t *TextBlock) HTML() string {
 	var out strings.Builder
 	out.WriteString("<p>\n")
+	var tmp string
 	for _, text := range t.Items {
-		out.WriteString(text.textHTML())
+		tmp = strings.TrimSpace(text.textHTML())
+		if tmp == "" {
+			continue
+		}
+		out.WriteString(tmp)
 		out.WriteRune('\n')
 	}
 	out.WriteString("</p>")
@@ -76,8 +81,13 @@ func (tb *TextBlock) Bare() string {
 
 func (tb *TextBlock) textHTML() string {
 	var out strings.Builder
+	var tmp string
 	for _, t := range tb.Items {
-		out.WriteString(t.textHTML())
+		tmp = strings.TrimSpace(t.textHTML())
+		if tmp == "" {
+			continue
+		}
+		out.WriteString(tmp)
 		out.WriteRune('\n')
 	}
 	return out.String()
@@ -97,7 +107,8 @@ type Heading struct {
 }
 
 func (h *Heading) HTML() string {
-	return fmt.Sprintf("<h%d> %s </h%d>", h.Level, h.Title.textHTML(), h.Level)
+	return fmt.Sprintf("<h%d> %s </h%d>", h.Level,
+		strings.ReplaceAll(h.Title.textHTML(), "\n", ""), h.Level)
 }
 
 type OrderedList struct {

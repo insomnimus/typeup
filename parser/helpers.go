@@ -53,57 +53,6 @@ func (p *Parser) searchLineUntil(c rune) (string, int) {
 	return string(p.doc[p.readpos:end]), end
 }
 
-func (p *Parser) lineFirstNonSpaceIndex() int {
-	var first int
-	var ch rune
-	for i := p.pos; i >= 0; i-- {
-		ch = p.doc[i]
-		if ch == '\n' {
-			return first
-		}
-		if !unicode.IsSpace(ch) {
-			first = i
-		}
-	}
-
-	return first
-}
-
-func (p *Parser) lineLastNonSpaceIndex() int {
-	var ch rune
-	last := p.pos
-	for i := p.pos; i < len(p.doc); i++ {
-		ch = p.doc[i]
-		if ch == '\n' {
-			return last
-		}
-		if !unicode.IsSpace(ch) {
-			last = i
-		}
-	}
-	return last
-}
-
-func isBold(s string) (string, bool) {
-	if len(s) < 3 {
-		return "", false
-	}
-	if s[0] == '_' && s[len(s)-1] == '_' {
-		return s[1 : len(s)-1], true
-	}
-	return "", false
-}
-
-func isItalic(s string) (string, bool) {
-	if len(s) < 3 {
-		return "", false
-	}
-	if s[0] == '*' && s[len(s)-1] == '*' {
-		return s[1 : len(s)-1], true
-	}
-	return "", false
-}
-
 func (p *Parser) aheadIs(s string) bool {
 	if len(s)+p.pos >= len(p.doc) {
 		return false

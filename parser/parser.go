@@ -775,7 +775,6 @@ LOOP:
 			} else {
 				buff.WriteRune(p.ch)
 			}
-		// TODO: implement multiline quotes (p.readBlockQuote)
 		case '|':
 			if node, ok := p.blockQuoteAhead(); ok {
 				text = strings.TrimSpace(buff.String())
@@ -1145,10 +1144,6 @@ func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
 	if p.ch != '|' || !p.isStartOfLine() {
 		return nil, false
 	}
-	if !unicode.IsSpace(p.peek()) {
-		p.warnAt(p.pos, "missing space after '|' in block quote")
-		return nil, false
-	}
 	if p.peek() == '\n' {
 		return nil, false
 	}
@@ -1157,8 +1152,6 @@ func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
 		backupPos = p.pos
 	)
 	p.read()
-	p.read()
-
 	for {
 		if p.ch == 0 {
 			break
@@ -1167,17 +1160,10 @@ func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
 			if p.peek() != '|' {
 				break
 			}
-			if p.peekN(2) == '\n' {
-				buff.WriteRune(p.ch)
-				p.read()
-				p.read()
-				continue
-			}
-			if !unicode.IsSpace(p.peekN(2)) {
-				break
-			}
+			buff.WriteRune(p.ch)
 			p.read()
 			p.read()
+			continue
 		}
 		buff.WriteRune(p.ch)
 		p.read()
@@ -1194,7 +1180,7 @@ func (p *Parser) blockQuoteAhead() (*ast.BlockQuote, bool) {
 }
 
 func (p *Parser) multilineQuoteAhead() (*ast.BlockQuote, bool) {
-	if !p.isStartOfLine() || !p.aheadIs(`"""`) {
+	if !p.isStartOfLine() || p.ch != '"' || p.peek() != '"' || p.peekN(2) != '"' {
 		return nil, false
 	}
 	var (
