@@ -31,10 +31,7 @@ type ListItem interface {
 	listHTML() string
 }
 
-type Text struct {
-	Style TextStyle
-	Text  string
-}
+// Text
 
 func (t *Text) textHTML() string {
 	switch t.Style {
@@ -51,9 +48,7 @@ func (t *Text) textHTML() string {
 func (t *Text) listHTML() string { return t.textHTML() }
 func (t *Text) Bare() string     { return t.Text }
 
-type TextBlock struct {
-	Items []TextNode
-}
+// TextBlock
 
 func (t *TextBlock) HTML() string {
 	var out strings.Builder
@@ -101,19 +96,14 @@ func (tb *TextBlock) listHTML() string {
 	return out.String()
 }
 
-type Heading struct {
-	Title TextNode
-	Level int
-}
+// Heading
 
 func (h *Heading) HTML() string {
 	return fmt.Sprintf("<h%d> %s </h%d>", h.Level,
 		strings.ReplaceAll(h.Title.textHTML(), "\n", ""), h.Level)
 }
 
-type OrderedList struct {
-	Items []ListItem
-}
+// OrderedList
 
 func (ol *OrderedList) HTML() string {
 	var out strings.Builder
@@ -129,9 +119,7 @@ func (ol *OrderedList) listHTML() string {
 	return ol.HTML()
 }
 
-type UnorderedList struct {
-	Items []ListItem
-}
+// UnorderedList
 
 func (ul *UnorderedList) HTML() string {
 	var out strings.Builder
@@ -145,10 +133,7 @@ func (ul *UnorderedList) HTML() string {
 
 func (ul *UnorderedList) listHTML() string { return ul.HTML() }
 
-type Anchor struct {
-	Text TextNode
-	URL  string
-}
+// Anchor
 
 func (a *Anchor) Bare() string { return a.Text.Bare() }
 func (a *Anchor) textHTML() string {
@@ -159,10 +144,7 @@ func (a *Anchor) textHTML() string {
 
 func (a *Anchor) listHTML() string { return a.textHTML() }
 
-type Table struct {
-	Headers []TextNode
-	Rows    [][]TextNode
-}
+// Table
 
 func (t *Table) HTML() string {
 	var out strings.Builder
@@ -183,9 +165,7 @@ func (t *Table) HTML() string {
 	return out.String()
 }
 
-type Code struct {
-	Text string
-}
+// Code
 
 func (c *Code) HTML() string {
 	return fmt.Sprintf("<pre><code>%s</code></pre>",
@@ -196,18 +176,13 @@ func (c *Code) textHTML() string { return c.HTML() }
 func (c *Code) listHTML() string { return c.HTML() }
 func (c *Code) Bare() string     { return c.Text }
 
-type Video struct {
-	Source string
-	Attrs  map[string]string // not implemented
-}
+// Video
 
 func (v *Video) HTML() string {
 	return fmt.Sprintf("<video><source src=%q></video>", v.Source)
 }
 
-type Image struct {
-	Attrs map[string]string
-}
+// Image
 
 func (img *Image) HTML() string {
 	var out strings.Builder
@@ -219,9 +194,7 @@ func (img *Image) HTML() string {
 	return out.String()
 }
 
-type BlockQuote struct {
-	Text TextNode
-}
+// BlockQuote
 
 func (bq *BlockQuote) Bare() string { return bq.Text.Bare() }
 func (bq *BlockQuote) HTML() string {
@@ -237,19 +210,17 @@ func (bq *BlockQuote) listHTML() string {
 	return fmt.Sprintf("<blockquote> %s </blockquote>", bq.Text.listHTML())
 }
 
-type ThemeBreak struct{}
+// ThemeBreak
 
 func (*ThemeBreak) HTML() string { return "<hr>" }
 
-type LineBreak struct{}
+// LineBreak
 
 func (*LineBreak) HTML() string     { return "<br>" }
 func (*LineBreak) textHTML() string { return "<br>" }
 func (*LineBreak) Bare() string     { return "" }
 
-type InlineCode struct {
-	Text string
-}
+// InlineCode
 
 func (c *InlineCode) textHTML() string {
 	return fmt.Sprintf("<code> %s </code>", escape(c.Text))
