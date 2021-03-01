@@ -15,7 +15,8 @@ type Parser struct {
 }
 
 func New(s string) *Parser {
-	s = strings.Replace(s, "\r", "\n", -1)
+	replacer := strings.NewReplacer("\r\n", "\n", "\r", "\n")
+	s = replacer.Replace(s)
 	p := &Parser{
 		doc:  []rune(s),
 		meta: make(map[string]string),
@@ -373,9 +374,9 @@ LOOP:
 			p.setPos(backupPos)
 			return nil, false
 		case '\n':
-			ln = buff.String()
+			ln = strings.TrimSpace(buff.String())
 			buff.Reset()
-			if !isEmpty(ln) {
+			if ln != "" {
 				items = append(items, processText(ln))
 			}
 		default:
@@ -437,9 +438,9 @@ LOOP:
 			p.setPos(backupPos)
 			return nil, false
 		case '\n':
-			ln = buff.String()
+			ln = strings.TrimSpace(buff.String())
 			buff.Reset()
-			if !isEmpty(ln) {
+			if ln != "" {
 				items = append(items, processText(ln))
 			}
 		default:
