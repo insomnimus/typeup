@@ -208,40 +208,59 @@ func (p *Parser) headingAhead() (*ast.Heading, bool) {
 	if p.ch != '#' || !p.isStartOfLine() {
 		return nil, false
 	}
-	var char rune
-	var idx, level int
-	var buff strings.Builder
-	for i := p.pos; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if unicode.IsSpace(char) && char != '\n' {
-			idx = i + 1 // set the cursor to the text
-			break
-		}
-		if char == '\n' {
-			p.warnAt(i, "heading possibly missing title")
-			return nil, false
-		}
+	var (
+		level     int
+		buff      strings.Builder
+		backupPos = p.pos
+	)
+	for p.ch == '#' {
 		level++
+		p.read()
 	}
-	if idx >= len(p.doc) {
-		p.warnAt(idx, "line doesn2t make sense")
+	if p.ch == '\n' {
+		p.warnAt(p.pos, "heading possibly missing title")
+		p.setPos(backupPos)
 		return nil, false
-	} else if p.doc[idx] == '\n' {
-		p.warnAt(idx, "heading possibly missing title")
+	}
+	if !unicode.IsSpace(p.ch) {
+		if level != 1 {
+			p.warnAt(p.pos, "heading text needs to be separated with a space")
+		}
+		p.setPos(backupPos)
+		return nil, false
+	}
+	if p.ch == 0 {
+		p.warnAt(p.pos, "unexpected EoF")
+		p.setPos(backupPos)
 		return nil, false
 	}
 	if level > 6 {
-		level = 6
-		p.warnAt(idx, "too many '#' for a heading, maximum is 6")
+		p.warnAt(p.pos, "too many '#'s for a heading, maximum is 6")
+		p.setPos(backupPos)
+		return nil, false
 	}
-	for i := idx; i < len(p.doc); i++ {
-		char = p.doc[i]
-		if char == '\n' {
-			p.setPos(i)
+	
+	for {
+		if p.ch == '\n' {
+			p.read()
 			break
 		}
-		buff.WriteRune(char)
+		if p.ch == 0 {
+			p.warnAt(p.pos, "unexpected EoF")
+			p.setPos(backupPos)
+			return nil, false
+		}
+		buff.WriteRune(p.ch)
+		p.read()
 	}
+
+	text := strings.TrimSpace(buff.String())
+	if text == "" {
+		p.warnAt(p.pos, "heading possibly missing title")
+		p.setPos(backupPos)
+		return nil, false
+	}
+
 	return &ast.Heading{
 		Level: level,
 		Title: processText(buff.String()),
