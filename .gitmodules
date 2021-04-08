@@ -1,0 +1,3 @@
+[submodule "typeup-doc"]
+	path = typeup-doc
+	url = https://git.sr.ht/~skuzzymiglet/typeup-doc
