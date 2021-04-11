@@ -1,9 +1,9 @@
 package parser
 
 import (
+	"github.com/insomnimus/typeup/ast"
 	"regexp"
 	"strings"
-	"github.com/insomnimus/typeup/ast"
 	"unicode"
 )
 

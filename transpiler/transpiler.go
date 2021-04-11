@@ -2,9 +2,9 @@ package transpiler
 
 import (
 	"fmt"
+	"github.com/insomnimus/typeup/parser"
 	"html"
 	"io"
-	"github.com/insomnimus/typeup/parser"
 )
 
 func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {

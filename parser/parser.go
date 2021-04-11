@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"strings"
 	"github.com/insomnimus/typeup/ast"
+	"strings"
 	"unicode"
 )
 

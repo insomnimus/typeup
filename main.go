@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
+	"github.com/insomnimus/typeup/transpiler"
 	"io"
 	"log"
 	"os"
-	"github.com/insomnimus/typeup/transpiler"
 )
 
 func main() {
