@@ -2,7 +2,7 @@ package parser
 
 import (
 	"strings"
-	"typeup/ast"
+	"github.com/insomnimus/typeup/ast"
 	"unicode"
 )
 

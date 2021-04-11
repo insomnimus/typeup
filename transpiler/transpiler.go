@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"typeup/parser"
+	"github.com/insomnimus/typeup/parser"
 )
 
 func ToHTML(stdin io.Reader, stdout, stderr io.Writer) error {

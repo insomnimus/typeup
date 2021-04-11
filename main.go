@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"typeup/transpiler"
+	"github.com/insomnimus/typeup/transpiler"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package parser
 import (
 	"regexp"
 	"strings"
-	"typeup/ast"
+	"github.com/insomnimus/typeup/ast"
 	"unicode"
 )
 
