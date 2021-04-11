@@ -15,7 +15,7 @@ type Parser struct {
 }
 
 func New(s string) *Parser {
-	s = strings.Replace(s, "\r", "\n", -1)
+	s = strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(s)
 	p := &Parser{
 		doc:  []rune(s),
 		meta: make(map[string]string),
@@ -78,16 +78,8 @@ func (p *Parser) Next() ast.Node {
 		}
 		return p.readPlainText(true)
 	case 'i':
-		if node, ok := p.imageAhead(); ok {
-			return node
-		}
 		if p.ignoreAhead() {
 			return p.Next()
-		}
-		return p.readPlainText(true)
-	case 'v':
-		if node, ok := p.videoAhead(); ok {
-			return node
 		}
 		return p.readPlainText(true)
 	case 0:
@@ -199,44 +191,59 @@ func (p *Parser) linkAhead() (*ast.Anchor, bool) {
 	}
 }
 
-func (p *Parser) headingAhead() (*ast.Heading, bool) {
+func (p *Parser) headingAhead() (head *ast.Heading, yes bool) {
 	if p.ch != '#' || !p.isStartOfLine() {
-		return nil, false
+		return
 	}
-	var char rune
-	var idx, level int
-	var buff strings.Builder
+	var (
+		char       rune
+		idx, level int
+		buff       strings.Builder
+	)
 	for i := p.pos; i < len(p.doc); i++ {
 		char = p.doc[i]
-		if unicode.IsSpace(char) && char != '\n' {
-			idx = i + 1 // set the cursor to the text
-			break
+		if char == '{' {
+			return
 		}
 		if char == '\n' {
 			p.warnAt(i, "heading possibly missing title")
 			return nil, false
 		}
+		if char != '#' {
+			idx = i + 1 // set the cursor to the text
+			break
+		}
+
 		level++
 	}
+
 	if idx >= len(p.doc) {
-		p.warnAt(idx, "line doesn2t make sense")
-		return nil, false
-	} else if p.doc[idx] == '\n' {
-		p.warnAt(idx, "heading possibly missing title")
-		return nil, false
+		p.warnAt(idx, "line doesn't make sense")
+		return
 	}
+	if p.doc[idx] == '\n' {
+		p.warnAt(idx, "heading possibly missing title")
+		return
+	}
+
 	if level > 6 {
 		level = 6
 		p.warnAt(idx, "too many '#' for a heading, maximum is 6")
 	}
+
+	// read the title text
 	for i := idx; i < len(p.doc); i++ {
 		char = p.doc[i]
+		if char == '{' {
+			return
+		}
 		if char == '\n' {
 			p.setPos(i)
 			break
 		}
 		buff.WriteRune(char)
 	}
+
 	return &ast.Heading{
 		Level: level,
 		Title: processText(buff.String()),
@@ -916,24 +923,28 @@ func (p *Parser) videoAhead() (*ast.Video, bool) {
 	return &ast.Video{Source: href}, true
 }
 
-func (p *Parser) imageShortAhead() (*ast.Image, bool) {
+func (p *Parser) imageShortAhead() (img *ast.Image, yes bool) {
 	if p.ch != '!' || !p.isStartOfLine() || p.peek() != '[' {
 		return nil, false
 	}
-	backupPos := p.pos
+	pos := p.pos
+	defer func() {
+		if !yes {
+			p.setPos(pos)
+		}
+	}()
+
 	var buff strings.Builder
 	p.read()
 	p.read()
 	for p.ch != ']' {
 		if p.ch == 0 {
 			p.warnAt(p.pos, "unexpected EoF")
-			p.setPos(backupPos)
-			return nil, false
+			return
 		}
 		if p.ch == '\n' {
 			p.warnAt(p.pos, "possibly image syntax error")
-			p.setPos(backupPos)
-			return nil, false
+			return
 		}
 		buff.WriteRune(p.ch)
 		p.read()
@@ -942,8 +953,7 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 	text := strings.TrimSpace(buff.String())
 	if text == "" {
 		p.warnAt(p.pos, "image syntax possibly incorrect")
-		p.setPos(backupPos)
-		return nil, false
+		return
 	}
 
 	if strings.Contains(text, "|") {
@@ -956,11 +966,6 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 				break
 			}
 		}
-		if alt == "" && href == "" {
-			p.warnAt(p.pos, "image possibly missing alt and source attributes")
-			p.setPos(backupPos)
-			return nil, false
-		}
 		if href != "" && alt != "" {
 			return &ast.Image{Attrs: map[string]string{
 				"src": href,
@@ -972,13 +977,8 @@ func (p *Parser) imageShortAhead() (*ast.Image, bool) {
 	fields := strings.Fields(text)
 	switch len(fields) {
 	case 0: // impossible but still
-		p.warnAt(backupPos, "image syntax possibly wrong")
-		p.setPos(backupPos)
-		return nil, false
-	case 1:
-		p.warnAt(backupPos, "image alt text is missing")
-		p.setPos(backupPos)
-		return nil, false
+		p.warnAt(pos, "invalid image syntax")
+		return
 	default:
 		return &ast.Image{Attrs: map[string]string{
 			"src": fields[len(fields)-1],
